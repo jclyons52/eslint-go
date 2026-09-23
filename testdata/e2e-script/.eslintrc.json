@@ -1,0 +1,15 @@
+{
+  "root": true,
+  "parserOptions": { "ecmaVersion": 2022, "sourceType": "script" },
+  "globals": { "console": "readonly" },
+  "rules": {
+    "no-dupe-args": "error",
+    "no-undef": "error",
+    "no-caller": "error",
+    "no-var": "warn",
+    "eqeqeq": "error",
+    "semi": "error",
+    "no-debugger": "error",
+    "no-empty": "error"
+  }
+}

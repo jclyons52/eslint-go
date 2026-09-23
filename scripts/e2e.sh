@@ -10,7 +10,8 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-FIXTURE="$ROOT/testdata/e2e"
+FIXTURE="${FIXTURE:-$ROOT/testdata/e2e}"
+SCRIPT_FIXTURE="$ROOT/testdata/e2e-script"
 ORACLE="$ROOT/oracle"
 REAL_ESLINT="$ORACLE/node_modules/eslint/bin/eslint.js"
 
@@ -33,6 +34,19 @@ echo "building eslint-go ..."
 }
 BIN="$WORK/eslint-go"
 
+# The fixture config lists every rule the demo wants to exercise; not all of them
+# are ported yet, and configuring an unported rule produces ESLint's
+# "Definition for rule ... was not found." problem — which would be noise here.
+# Both tools therefore get the SAME filtered config: the fixture's rules
+# intersected with the rules this port actually implements. As rules land, the
+# effective config grows automatically.
+EFFECTIVE_CONFIG="$WORK/.eslintrc.effective.json"
+SCRIPT_CONFIG="$WORK/.eslintrc.script.json"
+RULE_LIST_FILE="$WORK/rules.txt"
+"$BIN" --list-rules | awk 'NR>1 {print $1}' > "$RULE_LIST_FILE"
+python3 "$ROOT/scripts/filter_config.py" "$FIXTURE/.eslintrc.json" "$EFFECTIVE_CONFIG" "$RULE_LIST_FILE"
+python3 "$ROOT/scripts/filter_config.py" "$SCRIPT_FIXTURE/.eslintrc.json" "$SCRIPT_CONFIG" "$RULE_LIST_FILE"
+
 pass=0
 fail=0
 skipped=0
@@ -48,6 +62,8 @@ compare() {
     rm -rf "$a" "$b"
     cp -R "$FIXTURE" "$a"
     cp -R "$FIXTURE" "$b"
+    cp "$EFFECTIVE_CONFIG" "$a/.eslintrc.json"
+    cp "$EFFECTIVE_CONFIG" "$b/.eslintrc.json"
 
     # Physical paths: /var is a symlink to /private/var on macOS, and both tools
     # report the resolved location.
@@ -116,6 +132,12 @@ run_all() {
     compare glob --format stylish "src/[fw]*.js"
     STDIN_FILE="$FIXTURE/src/fields.js" compare stdin --stdin --stdin-filename src/fields.js
     STDIN_FILE=/dev/null compare stdin-empty --stdin
+
+    # Script mode (sloppy): duplicate parameters, `with`, legacy octals and
+    # `arguments.callee` are only legal when sourceType is "script".
+    FIXTURE="$SCRIPT_FIXTURE" EFFECTIVE_CONFIG="$SCRIPT_CONFIG" compare script-stylish src
+    FIXTURE="$SCRIPT_FIXTURE" EFFECTIVE_CONFIG="$SCRIPT_CONFIG" compare script-json -f json src
+    FIXTURE="$SCRIPT_FIXTURE" EFFECTIVE_CONFIG="$SCRIPT_CONFIG" compare script-fix --fix src
 }
 
 if [ $# -gt 0 ]; then
@@ -129,6 +151,9 @@ if [ $# -gt 0 ]; then
             single-file) compare single-file src/fields.js ;;
             fix) compare fix --fix src ;;
             fix-dry-run) compare fix-dry-run --fix-dry-run src ;;
+            script-stylish) FIXTURE="$SCRIPT_FIXTURE" EFFECTIVE_CONFIG="$SCRIPT_CONFIG" compare script-stylish src ;;
+            script-json) FIXTURE="$SCRIPT_FIXTURE" EFFECTIVE_CONFIG="$SCRIPT_CONFIG" compare script-json -f json src ;;
+            script-fix) FIXTURE="$SCRIPT_FIXTURE" EFFECTIVE_CONFIG="$SCRIPT_CONFIG" compare script-fix --fix src ;;
             *) echo "unknown scenario: $s"; exit 2 ;;
         esac
     done

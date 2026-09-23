@@ -170,9 +170,10 @@ it in your final report; do not edit the core (concurrent ports would conflict).
    `GetStaticPropertyName` returns `(name string, ok bool)`.
 5. **Comments are not tokens** unless you ask for them
    (`TokenOpt{IncludeComments: true}`).
-6. **Suggestions are out of scope.** If a rule's `meta.hasSuggestions` is true
-   (or the oracle output contains a `suggestions` array), stop and report it —
-   the message shape is not implemented.
+6. **Suggestions go in `Report.Suggest`.** Rules with `meta.hasSuggestions` set
+   `Suggest: []eslint.Suggestion{{MessageID, Data, Fix}}`; the core interpolates
+   `desc` from the messageId and emits the `suggestions` array in JSON output
+   (never applied by `--fix`). Entries whose fix returns nil are dropped.
 7. **Code-path analysis rules are out of scope** (`no-unreachable`,
    `consistent-return`, `no-fallthrough`, `getter-return`, `constructor-super`).
 8. **Don't weaken the corpus.** If a case mismatches, the rule (or your port of

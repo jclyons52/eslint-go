@@ -12,6 +12,58 @@
     "no-debugger": "error",
     "no-dupe-keys": "error",
     "no-undef": "error",
-    "no-trailing-spaces": "warn"
+    "no-trailing-spaces": "warn",
+    "no-empty": "error",
+    "no-eval": "error",
+    "no-console": "warn",
+    "no-alert": "error",
+    "no-array-constructor": "error",
+    "no-new-object": "error",
+    "no-new-wrappers": "error",
+    "no-sparse-arrays": "error",
+    "no-extra-boolean-cast": "error",
+    "no-throw-literal": "error",
+    "no-regex-spaces": "error",
+    "no-func-assign": "error",
+    "no-cond-assign": "error",
+    "no-constant-condition": "error",
+    "eqeqeq": "error",
+    "no-self-compare": "error",
+    "no-unsafe-negation": "error",
+    "use-isnan": "error",
+    "valid-typeof": "error",
+    "no-duplicate-case": "error",
+    "prefer-const": "error",
+    "no-redeclare": "error",
+    "no-shadow": "warn",
+    "no-var": "error",
+    "semi": [
+      "error",
+      "always"
+    ],
+    "quotes": [
+      "error",
+      "double"
+    ],
+    "curly": [
+      "error",
+      "multi-line"
+    ],
+    "dot-notation": "error",
+    "no-extra-semi": "error",
+    "no-else-return": "error",
+    "no-lonely-if": "error",
+    "comma-dangle": [
+      "error",
+      "never"
+    ],
+    "eol-last": "warn",
+    "no-multiple-empty-lines": "warn",
+    "no-multi-spaces": "error",
+    "space-infix-ops": "error",
+    "no-whitespace-before-property": "error",
+    "no-floating-decimal": "error",
+    "no-mixed-spaces-and-tabs": "error",
+    "yoda": "error"
   }
 }
