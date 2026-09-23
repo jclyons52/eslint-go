@@ -233,6 +233,25 @@ func configFromCase(rule eslint.Rule, c Case, severity any, opts Options) *eslin
 		cfg = map[string]any{"rules": map[string]any{rule.ID: value}}
 	}
 	cfg = mergeConfig(cfg, opts.ExtraConfig)
+	// The oracle driver fills parserOptions with
+	// {ecmaVersion: c.ecmaVersion || 2022, sourceType: c.sourceType || "module"}
+	// unless the case's own config sets them; the Go side has to be told the
+	// same thing or it parses the input differently from real ESLint.
+	ecmaVersion := c.ECMAVersion
+	if ecmaVersion == 0 {
+		ecmaVersion = 2022
+	}
+	sourceType := c.SourceType
+	if sourceType == "" {
+		sourceType = "module"
+	}
+	parserOptions := map[string]any{"ecmaVersion": ecmaVersion, "sourceType": sourceType}
+	if existing, ok := cfg["parserOptions"].(map[string]any); ok {
+		for k, v := range existing {
+			parserOptions[k] = v
+		}
+	}
+	cfg["parserOptions"] = parserOptions
 	parsed, err := eslint.ParseConfigJSON(mustJSONConfig(cfg))
 	if err != nil {
 		panic("ruletest: invalid generated config: " + err.Error())

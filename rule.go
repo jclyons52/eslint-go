@@ -85,6 +85,7 @@ func (c *Context) Report(d Report) {
 		fix = d.Fix(&Fixer{sc: c.SourceCode})
 	}
 	problem := createProblem(c.ID, c.Severity, d.Node, msg, d.MessageID, loc, fix, c.SourceCode)
+	problem.Suggestions = mapSuggestions(d.Suggest, c.meta.Messages, c.SourceCode)
 	c.collect(problem)
 }
 

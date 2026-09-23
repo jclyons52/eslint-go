@@ -20,11 +20,12 @@ type ParseResult struct {
 
 // Parse parses text with espree-go at acorn's latest ECMAScript version.
 //
-// sourceType is reported on the Program node (and drives scope analysis), but
-// the underlying acorn-go parser is module-only: script-only syntax (`with`,
-// legacy octal literals, duplicate parameter names outside sloppy mode) is
-// therefore rejected. That is a documented divergence from ESLint 8, which
-// parses script mode; see README "Known divergences".
+// sourceType is reported on the Program node and drives the parser's own
+// semantics: "module" gives strict module code, "script" gives sloppy script
+// code (and "commonjs" is parsed as script while still being reported as
+// "commonjs"). parserOptions.ecmaVersion is accepted but not enforced — the
+// port parses at the newest syntax level, so a configured older version's
+// restrictions are not applied. See README "Known divergences".
 func Parse(text, sourceType string) (*ParseResult, error) {
 	if sourceType == "" {
 		sourceType = "script"

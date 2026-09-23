@@ -26,6 +26,34 @@ type Message struct {
 	EndColumn int
 	Fatal     bool
 	Fix       *Fix
+	// Suggestions is the reported rule's suggest list, already filtered the
+	// way ESLint filters it (entries without a fix are dropped). Present only
+	// in the JSON formatter's output — --fix never applies suggestions.
+	Suggestions []SuggestionResult
+}
+
+// Suggestion is one entry of a report descriptor's `suggest` array.
+//
+// ESLint emits the entry's own keys in the order the rule wrote them, then
+// desc last; Go has no field order, so SuggestionResult marshals the shape
+// every rule in this port uses ({messageId, data?, fix?, desc}).
+type Suggestion struct {
+	// MessageID names a message in the rule's meta.messages (used for desc).
+	MessageID string
+	// Data supplies {{placeholders}} for the desc template.
+	Data map[string]any
+	// Desc overrides the message template (ESLint's `suggest[i].desc`).
+	Desc string
+	// Fix produces the suggested edit.
+	Fix func(*Fixer) *Fix
+}
+
+// SuggestionResult is a suggestion as emitted in a LintMessage.
+type SuggestionResult struct {
+	MessageID string
+	Data      map[string]any
+	Fix       *Fix
+	Desc      string
 }
 
 // Fix is a rule fix: replace [Range[0], Range[1]) with Text. Range is in byte
@@ -81,8 +109,45 @@ func (m Message) MarshalJSON() ([]byte, error) {
 		b.WriteString(`,"fix":{"range":[` + itoa(r[0]) + `,` + itoa(r[1]) +
 			`],"text":` + jsonString(m.Fix.Text) + `}`)
 	}
+	if len(m.Suggestions) > 0 {
+		b.WriteString(`,"suggestions":[`)
+		for i, s := range m.Suggestions {
+			if i > 0 {
+				b.WriteByte(',')
+			}
+			b.WriteByte('{')
+			b.WriteString(`"messageId":` + jsonString(s.MessageID))
+			if s.Data != nil {
+				b.WriteString(`,"data":` + jsonValue(s.Data))
+			}
+			if s.Fix != nil {
+				r := s.Fix.Range
+				if s.Fix.units != nil {
+					r = *s.Fix.units
+				}
+				b.WriteString(`,"fix":{"range":[` + itoa(r[0]) + `,` + itoa(r[1]) +
+					`],"text":` + jsonString(s.Fix.Text) + `}`)
+			}
+			b.WriteString(`,"desc":` + jsonString(s.Desc))
+			b.WriteByte('}')
+		}
+		b.WriteByte(']')
+	}
 	b.WriteByte('}')
 	return b.Bytes(), nil
+}
+
+// jsonValue encodes arbitrary report data. ESLint preserves the rule's key
+// order; Go maps do not, so keys are sorted (the port's suggestion data is
+// single-key in every rule that carries it).
+func jsonValue(v any) string {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(v); err != nil {
+		return `null`
+	}
+	return strings.TrimRight(buf.String(), "\n")
 }
 
 // jsonString encodes a Go string as JSON with HTML escaping disabled, so output
@@ -112,6 +177,40 @@ type Report struct {
 	Data map[string]any
 	// Fix produces a fix for the problem.
 	Fix func(*Fixer) *Fix
+	// Suggest lists editable suggestions for the problem (ESLint's
+	// descriptor.suggest). Entries are emitted only in the JSON formatter and
+	// never applied by --fix.
+	Suggest []Suggestion
+}
+
+// mapSuggestions replicates report-translator's mapSuggestions: each entry's
+// desc is interpolated from its messageId (or explicit desc) and its fix is
+// materialised — entries that produce no fix are dropped.
+func mapSuggestions(list []Suggestion, messages map[string]string, sc *SourceCode) []SuggestionResult {
+	if len(list) == 0 {
+		return nil
+	}
+	out := make([]SuggestionResult, 0, len(list))
+	for _, s := range list {
+		desc := s.Desc
+		if desc == "" {
+			desc = messages[s.MessageID]
+		}
+		desc = interpolate(desc, s.Data)
+		var fix *Fix
+		if s.Fix != nil {
+			fix = s.Fix(&Fixer{sc: sc})
+		}
+		if fix == nil {
+			continue
+		}
+		fix = (&Fixer{sc: sc}).withUnits(fix)
+		out = append(out, SuggestionResult{MessageID: s.MessageID, Data: s.Data, Fix: fix, Desc: desc})
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 var interpolateRe = regexp.MustCompile(`\{\{\s*([^{}\s]+)\s*\}\}`)

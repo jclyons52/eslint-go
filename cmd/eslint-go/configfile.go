@@ -144,15 +144,45 @@ func resolveExtends(ext, fromPath string, rules map[string]eslint.Rule) (*eslint
 
 // mergeConfig merges src into dst: rules and globals accumulate (src wins),
 // parserOptions/settings merge key by key, env unions.
+//
+// Rule order matters (it decides report order for rules firing on the same node
+// and the order of eslint's usedDeprecatedRules), so it is preserved: rules
+// already staged keep their position, src's own configured order follows, and
+// anything left over is appended in sorted order rather than in Go's random map
+// order.
 func mergeConfig(dst, src *eslint.Config) {
 	if dst.Rules == nil {
 		dst.Rules = map[string]any{}
 	}
-	for id, v := range src.Rules {
-		if _, exists := dst.Rules[id]; !exists {
-			dst.RuleOrder = append(dst.RuleOrder, id)
+	staged := map[string]bool{}
+	for _, id := range dst.RuleOrder {
+		staged[id] = true
+	}
+	ordered := append([]string{}, src.RuleOrder...)
+	orderedSeen := map[string]bool{}
+	for _, id := range ordered {
+		orderedSeen[id] = true
+	}
+	rest := make([]string, 0, len(src.Rules))
+	for id := range src.Rules {
+		if !orderedSeen[id] {
+			rest = append(rest, id)
 		}
+	}
+	sortStrings(rest)
+	ordered = append(ordered, rest...)
+
+	for id, v := range src.Rules {
 		dst.Rules[id] = v
+	}
+	for _, id := range ordered {
+		if _, exists := src.Rules[id]; !exists {
+			continue
+		}
+		if !staged[id] {
+			dst.RuleOrder = append(dst.RuleOrder, id)
+			staged[id] = true
+		}
 	}
 	if dst.ParserOptions == nil {
 		dst.ParserOptions = map[string]any{}

@@ -41,6 +41,26 @@ const replacements = JSON.parse(
     fs.readFileSync(path.join(process.cwd(), 'oracle/node_modules/eslint/conf/replacements.json'), 'utf8')
 ).rules;
 
+// Built-in globals ESLint injects per ecmaVersion/sourceType (conf/globals.js,
+// consumed by SourceCode.applyLanguageOptions via getGlobalsForEcmaVersion).
+const envGlobals = require(path.join(process.cwd(), 'oracle/node_modules/eslint/conf/globals.js'));
+const versionKeys = Object.keys(envGlobals).filter(k => k.startsWith('es') && k !== 'es3').sort();
+
+function access(value) {
+    if (value === 'writable' || value === true) return 'writable';
+    return 'readonly';
+}
+
+const versionLines = versionKeys
+    .map(key => {
+        const entries = Object.keys(envGlobals[key])
+            .sort()
+            .map(name => `${JSON.stringify(name)}:${JSON.stringify(access(envGlobals[key][name]))}`)
+            .join(', ');
+        return `\t"${key}": {${entries}},`;
+    })
+    .join('\n');
+
 const eslintPkg = require(path.join(process.cwd(), 'oracle/node_modules/eslint/package.json'));
 
 const ruleLines = recommended.map(id => `\t${JSON.stringify(id)}: "error",`).join('\n');
@@ -52,6 +72,21 @@ const replLines = Object.keys(replacements)
     .sort()
     .map(id => `\t${JSON.stringify(id)}: {${replacements[id].map(x => JSON.stringify(x)).join(', ')}},`)
     .join('\n');
+
+const commonJS = Object.keys(envGlobals.commonjs)
+    .sort()
+    .map(name => `${JSON.stringify(name)}:${JSON.stringify(access(envGlobals.commonjs[name]))}`)
+    .join(', ');
+
+// ESLint's eslintrc Linter path defines exactly the ES5 builtin globals
+// (conf/globals.js es5) regardless of parserOptions.ecmaVersion: probing every
+// name in es5 and es2015+ through the 8.57 Linter shows all 38 es5 names
+// defined and all 28 later names (Map, Promise, globalThis, WeakRef, …)
+// undefined. env/browser/node globals then layer on top of that base.
+const builtins = Object.keys(envGlobals.es5)
+    .sort()
+    .map(name => `${JSON.stringify(name)}:${JSON.stringify(access(envGlobals.es5[name]))}`)
+    .join(', ');
 
 const file = `package eslint
 
@@ -73,6 +108,23 @@ ${ruleLines}
 var DeprecatedRules = map[string][]string{
 ${depLines}
 }
+
+// BuiltinGlobals are the ES5 builtin globals ESLint's eslintrc Linter path
+// defines for every file, whatever parserOptions.ecmaVersion says (verified by
+// probing every es5/es2015+ name through eslint 8.57: 38/38 es5 names are
+// defined, while Map, Promise, globalThis, WeakRef, … are not).
+var BuiltinGlobals = map[string]string{${builtins}}
+
+// EcmaVersionGlobals is eslint's per-ecmaVersion global table
+// (conf/globals.js), keyed by the year form ("es2022", …). Carried for
+// auditing only: this port must NOT apply it, because the reference
+// implementation does not (see BuiltinGlobals).
+var EcmaVersionGlobals = map[string]map[string]string{
+${versionLines}
+}
+
+// CommonJSGlobals are added when parserOptions.sourceType is "commonjs".
+var CommonJSGlobals = map[string]string{${commonJS}}
 
 // RuleReplacements maps a removed rule id to the rules that replaced it.
 var RuleReplacements = map[string][]string{

@@ -12,8 +12,20 @@ import (
 //
 // Ported from linter.js's addDeclaredGlobals.
 
-// applyConfiguredGlobals defines configured globals in the global scope and
+// applyConfiguredGlobals defines the globals a run has in the global scope and
 // re-resolves the references that name them.
+//
+// This mirrors ESLint's layering exactly (eslintrc mode):
+//
+//	SourceCode.applyLanguageOptions:  built-ins for the ecmaVersion
+//	                                 (+ globals.commonjs for sourceType commonjs)
+//	                                 then the config's globals on top
+//	linter.js resolveGlobals:         enabled environments' globals, then the
+//	                                 provided globals
+//
+// so a configured global (or an environment's) wins over the built-in, and a
+// linter that skipped the ecmaVersion layer would report Array/NaN/Promise as
+// undefined.
 func applyConfiguredGlobals(sm *eslintscope.ScopeManager, cfg *Config) {
 	if sm == nil || len(sm.Scopes) == 0 {
 		return
@@ -21,9 +33,19 @@ func applyConfiguredGlobals(sm *eslintscope.ScopeManager, cfg *Config) {
 	globalScope := sm.Scopes[0]
 
 	names := map[string]string{} // name → "writable" | "readonly"
+	// The ES5 builtin set is the base in eslintrc mode — not the per-ecmaVersion
+	// table (see BuiltinGlobals).
+	for name, access := range BuiltinGlobals {
+		names[name] = access
+	}
+	if cfg.SourceType() == "commonjs" {
+		for name, access := range CommonJSGlobals {
+			names[name] = access
+		}
+	}
 	for env := range cfg.Env {
-		for name, value := range EnvGlobals(env) {
-			names[name] = value
+		for name, access := range EnvGlobals(env) {
+			names[name] = access
 		}
 	}
 	for name, writable := range cfg.Globals {
@@ -60,4 +82,20 @@ func applyConfiguredGlobals(sm *eslintscope.ScopeManager, cfg *Config) {
 		remaining = append(remaining, ref)
 	}
 	globalScope.Through = remaining
+}
+
+// ecmaVersionKey maps an ecmaVersion number to the key ESLint's conf/globals.js
+// uses: 3 and 5 stay as they are, 6-14 become the year form (6 → es2015,
+// 15 → es2024) and a year stays itself.
+func ecmaVersionKey(version int) string {
+	switch {
+	case version == 3:
+		return "es3"
+	case version == 5 || version < 3:
+		return "es5"
+	case version < 2015:
+		return "es" + itoa(version+2009)
+	default:
+		return "es" + itoa(version)
+	}
 }
