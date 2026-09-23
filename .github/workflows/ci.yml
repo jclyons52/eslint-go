@@ -30,3 +30,5 @@ jobs:
         run: go test ./...
       - name: end-to-end CLI parity
         run: bash scripts/e2e.sh
+      - name: declared oracle-case count
+        run: bash scripts/rule-case-count.sh
