@@ -1,129 +1,283 @@
 package eslint
 
-import "strings"
+import (
+	"sort"
+	"strings"
+)
 
-// Linter reproduces the observable behaviour of ESLint's Linter.verify for
-// the supported rule set. Parser integration (espree-go) is a separate
-// concern: VerifyParsed takes an already-parsed ESTree AST + text, which is
-// also exactly what the JS-oracle test feeds it.
-type Linter struct{}
+// linter.go — Linter.verify / verifyAndFix: the file-level pipeline.
+// Parse (espree-go) → SourceCode (+ eslint-scope) → run enabled rules over one
+// traversal → sort problems by position (as ESLint does) → optionally apply
+// fixes in up to 10 passes.
 
-// VerifyParsed runs the enabled rules from config over the given AST, in the
-// same traversal + report order as ESLint, returning the messages.
-func (l *Linter) VerifyParsed(code string, ast Node, config map[string]any) []Message {
-	sc := newSourceCode(code, ast)
-	rules := resolveRules(config)
+// Linter runs rules over source text.
+type Linter struct {
+	rules map[string]Rule
+}
 
-	// Build per-rule contexts + per-type dispatch.
-	type listener struct {
-		typ  string
-		exit bool
-		fn   func(Node)
+// NewLinter returns a linter with the given rules registered.
+func NewLinter(rules ...Rule) *Linter {
+	l := &Linter{rules: map[string]Rule{}}
+	l.DefineRules(rules...)
+	return l
+}
+
+// DefineRule registers a rule.
+func (l *Linter) DefineRule(r Rule) {
+	if r.ID == "" {
+		panic("eslint: DefineRule called with an empty rule ID")
 	}
-	var listeners []listener
-
-	// One shared collector backed by the messages slice, so reports append
-	// in ESLint's report order across all enabled rules.
-	messages := []Message{}
-	record := func(m *Message) {
-		messages = append(messages, *m)
+	if r.Create == nil {
+		panic("eslint: rule " + r.ID + " has no Create function")
 	}
+	l.rules[r.ID] = r
+}
 
+// DefineRules registers several rules.
+func (l *Linter) DefineRules(rules ...Rule) {
 	for _, r := range rules {
-		ctx := &RuleContext{
-			ID:         r.RuleID,
-			Severity:   r.Severity,
-			Options:    r.Options,
-			SourceCode: sc,
-			messages:   ruleRegistry[r.RuleID].messages,
-			collect:    record,
-		}
-		handlers := ruleRegistry[r.RuleID].create(ctx)
-		for sel, fn := range handlers {
-			typ := strings.TrimSuffix(sel, ":exit")
-			exit := strings.HasSuffix(sel, ":exit")
-			listeners = append(listeners, listener{typ: typ, exit: exit, fn: fn})
-		}
+		l.DefineRule(r)
 	}
+}
 
-	// Traverse and dispatch.
-	events := collectEvents(ast)
-	for _, ev := range events {
-		typ := nodeType(ev.node)
-		for _, ln := range listeners {
-			if ln.typ != typ || ln.exit != !ev.isEntering {
-				continue
-			}
-			ln.fn(ev.node)
-		}
+// Rule looks up a registered rule.
+func (l *Linter) Rule(id string) (Rule, bool) {
+	r, ok := l.rules[id]
+	return r, ok
+}
+
+// RuleIDs returns the registered rule IDs in sorted order.
+func (l *Linter) RuleIDs() []string {
+	ids := make([]string, 0, len(l.rules))
+	for id := range l.rules {
+		ids = append(ids, id)
 	}
+	sort.Strings(ids)
+	return ids
+}
+
+// MaxAutofixPasses is ESLint's MAX_AUTOFIX_PASSES.
+const MaxAutofixPasses = 10
+
+// Verify lints text and returns the reported problems.
+func (l *Linter) Verify(text string, cfg *Config, filename string) []Message {
+	messages, _ := l.verify(text, cfg, filename)
 	return messages
 }
 
-// enabledRule is a resolved, enabled rule with its severity and options.
-type enabledRule struct {
-	RuleID   string
-	Severity int
-	Options  []any
-}
+// VerifyAndFix lints text and applies fixes, repeating until no fixes remain
+// or 10 passes have run — the exact loop ESLint's Linter.verifyAndFix uses.
+func (l *Linter) VerifyAndFix(text string, cfg *Config, filename string) *FixResult {
+	currentText := text
+	fixed := false
+	passNumber := 0
+	var messages []Message
+	var fixedResult *FixResult
 
-// resolveRules parses config["rules"] and returns the enabled rules in the
-// configured rule order that we implement.
-func resolveRules(config map[string]any) []enabledRule {
-	var rules map[string]any
-	if config != nil {
-		if r, ok := config["rules"].(map[string]any); ok {
-			rules = r
+	for {
+		passNumber++
+		messages, _ = l.verify(currentText, cfg, filename)
+		ptrs := messagePointers(messages)
+		wasFixed, remaining, output := applyFixes(currentText, ptrs, nil)
+		fixedResult = &FixResult{
+			Fixed:    wasFixed,
+			Output:   output,
+			Messages: derefMessages(remaining),
+		}
+		// "stop if there are any syntax errors. 'fixedResult.output' is a empty string."
+		if len(messages) == 1 && messages[0].Fatal {
+			break
+		}
+		fixed = fixed || wasFixed
+		currentText = output
+		if !wasFixed || passNumber >= MaxAutofixPasses {
+			break
 		}
 	}
-	var out []enabledRule
-	for id, v := range rules {
-		m, ok := ruleRegistry[id]
-		if !ok {
-			continue
+
+	// If the last pass applied fixes, lint again so the reported messages match
+	// the final text.
+	if fixedResult.Fixed {
+		messages, _ = l.verify(currentText, cfg, filename)
+		fixedResult.Messages = messages
+	}
+	fixedResult.Fixed = fixed
+	fixedResult.Output = currentText
+	return fixedResult
+}
+
+// FixResult mirrors ESLint's verifyAndFix return value.
+type FixResult struct {
+	Fixed    bool
+	Output   string
+	Messages []Message
+}
+
+// LintResult is one file's lint outcome (the object formatters receive).
+type LintResult struct {
+	FilePath string
+	Messages []Message
+	Source   string
+	Output   string
+	// Fixed is true when the source was modified by --fix.
+	Fixed bool
+
+	ErrorCount          int
+	WarningCount        int
+	FixableErrorCount   int
+	FixableWarningCount int
+	UsedDeprecatedRules []string
+}
+
+// NewLintResult builds a result and computes its counts, mirroring ESLint's
+// result-object construction (fixable counts include any message carrying a
+// fix, regardless of whether --fix was used).
+func NewLintResult(filePath string, messages []Message) *LintResult {
+	r := &LintResult{FilePath: filePath, Messages: messages}
+	for _, m := range messages {
+		if m.Fatal || m.Severity == 2 {
+			r.ErrorCount++
+		} else {
+			r.WarningCount++
 		}
-		sev, opts, enabled := parseRuleConfig(v)
-		if !enabled || sev == 0 {
-			continue
+		if m.Fix != nil {
+			if m.Severity == 2 {
+				r.FixableErrorCount++
+			} else {
+				r.FixableWarningCount++
+			}
 		}
-		_ = m
-		out = append(out, enabledRule{RuleID: id, Severity: sev, Options: opts})
+	}
+	return r
+}
+
+// Lint verifies source text and returns a fully populated LintResult.
+func (l *Linter) Lint(text string, cfg *Config, filename string) *LintResult {
+	messages, _ := l.verify(text, cfg, filename)
+	r := NewLintResult(filename, messages)
+	r.Source = text
+	return r
+}
+
+// VerifyResult is Lint on already-read text, with output set after fixing.
+func (l *Linter) LintAndFix(text string, cfg *Config, filename string) *LintResult {
+	fr := l.VerifyAndFix(text, cfg, filename)
+	r := NewLintResult(filename, fr.Messages)
+	r.Source = text
+	r.Output = fr.Output
+	r.Fixed = fr.Fixed
+	return r
+}
+
+// listenerEntry is one bound selector of one rule instance.
+type listenerEntry struct {
+	typ  string
+	exit bool
+	fn   func(Node)
+}
+
+// verify is the core: parse, analyze scopes, dispatch rules, sort problems.
+func (l *Linter) verify(text string, cfg *Config, filename string) ([]Message, *SourceCode) {
+	if cfg == nil {
+		cfg = NewConfig()
+	}
+
+	hasBOM := strings.HasPrefix(text, "\uFEFF")
+	if hasBOM {
+		text = strings.TrimPrefix(text, "\uFEFF")
+	}
+
+	pr, err := Parse(text, cfg.SourceType())
+	if err != nil {
+		pe := normalizeParseError(err)
+		return []Message{*fatalMessage(err, "Parsing error: "+pe.Message,
+			pe.Line, ParseErrorColumn(text, pe.Line, pe.Column))}, nil
+	}
+
+	sc := NewSourceCode(text, pr.AST, pr.Tokens, pr.Comments, hasBOM)
+	events := collectEvents(pr.AST)
+	sm := analyzeScope(pr.AST, cfg.SourceType(), cfg.ECMAVersion())
+	applyConfiguredGlobals(sm, cfg)
+	sc.SetScopeManager(sm)
+
+	var problems []*Message
+	record := func(m *Message) { problems = append(problems, m) }
+
+	type run struct {
+		ctx     *Context
+		entries []listenerEntry
+	}
+
+	var runs []run
+	for _, er := range cfg.EnabledRules(l.rules) {
+		rule := l.rules[er.ID]
+		ctx := &Context{
+			ID:               er.ID,
+			Severity:         er.Severity,
+			Options:          er.Options,
+			SourceCode:       sc,
+			Filename:         filename,
+			PhysicalFilename: filename,
+			Settings:         cfg.Settings,
+			ParserOptions:    cfg.ParserOptions,
+			meta:             rule.Meta,
+			collect:          record,
+		}
+		handlers := rule.Create(ctx)
+		entries := make([]listenerEntry, 0, len(handlers))
+		for sel, fn := range handlers {
+			typ := strings.TrimSuffix(sel, ":exit")
+			entries = append(entries, listenerEntry{
+				typ:  typ,
+				exit: strings.HasSuffix(sel, ":exit"),
+				fn:   fn,
+			})
+		}
+		// Deterministic order within a rule (Go map iteration is random).
+		sort.SliceStable(entries, func(i, j int) bool {
+			if entries[i].typ != entries[j].typ {
+				return entries[i].typ < entries[j].typ
+			}
+			return !entries[i].exit && entries[j].exit
+		})
+		runs = append(runs, run{ctx: ctx, entries: entries})
+	}
+
+	for _, ev := range events {
+		typ := NodeType(ev.node)
+		for i := range runs {
+			r := &runs[i]
+			r.ctx.currentNode = ev.node
+			for _, e := range r.entries {
+				if e.typ == typ && e.exit == !ev.entering {
+					e.fn(ev.node)
+				}
+			}
+		}
+	}
+
+	// ESLint sorts problems by position (stable, so report order breaks ties).
+	sort.SliceStable(problems, func(i, j int) bool {
+		if problems[i].Line != problems[j].Line {
+			return problems[i].Line < problems[j].Line
+		}
+		return problems[i].Column < problems[j].Column
+	})
+	return derefMessages(problems), sc
+}
+
+func messagePointers(messages []Message) []*Message {
+	out := make([]*Message, len(messages))
+	for i := range messages {
+		out[i] = &messages[i]
 	}
 	return out
 }
 
-// parseRuleConfig mirrors ESLint's legacy severity + options normalization.
-func parseRuleConfig(v any) (severity int, options []any, enabled bool) {
-	severity, options, enabled = 0, nil, true
-	switch t := v.(type) {
-	case string:
-		switch t {
-		case "off":
-			return 0, nil, false
-		case "warn":
-			return 1, nil, true
-		case "error":
-			return 2, nil, true
-		}
-		return 0, nil, false
-	case float64:
-		return int(t), nil, int(t) != 0
-	case int:
-		return t, nil, t != 0
-	case int64:
-		return int(t), nil, t != 0
-	case bool:
-		if t {
-			return 2, nil, true
-		}
-		return 0, nil, false
-	case []any:
-		if len(t) == 0 {
-			return 0, nil, false
-		}
-		sev, _, _ := parseRuleConfig(t[0])
-		return sev, t[1:], sev != 0
-	default:
-		return 0, nil, false
+func derefMessages(msgs []*Message) []Message {
+	out := make([]Message, 0, len(msgs))
+	for _, m := range msgs {
+		out = append(out, *m)
 	}
+	return out
 }

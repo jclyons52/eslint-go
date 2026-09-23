@@ -1,36 +1,124 @@
 package eslint
 
 import (
+	"bytes"
+	"encoding/json"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
-// Message is a single reported problem, matching ESLint's LintMessage shape.
+// report.go — the report-translator. A rule's context.report() descriptor is
+// turned into ESLint's LintMessage object: messageId lookup + {{data}}
+// interpolation, loc normalisation, and the exact set/order of properties
+// ESLint emits (which is what makes message-level parity testable).
+
+// Message is one reported problem — ESLint's LintMessage.
 type Message struct {
-	RuleID    string `json:"ruleId"`
-	Severity  int    `json:"severity"`
-	Message   string `json:"message"`
-	Line      int    `json:"line"`
-	Column    int    `json:"column"`
-	NodeType  string `json:"nodeType"`
-	MessageID string `json:"messageId,omitempty"`
-	EndLine   int    `json:"endLine,omitempty"`
-	EndColumn int    `json:"endColumn,omitempty"`
-}
-
-// ReportDescriptor mirrors the object passed to context.report().
-type ReportDescriptor struct {
-	Node      Node
-	Loc       map[string]any // a {start,end} location object
+	RuleID    string
+	Severity  int
 	Message   string
+	Line      int
+	Column    int
+	NodeType  string
 	MessageID string
-	Data      map[string]any
+	EndLine   int
+	EndColumn int
+	Fatal     bool
+	Fix       *Fix
 }
 
-var interpolateRe = regexp.MustCompile(`\{\{([^{}]+)\}\}`)
+// Fix is a rule fix: replace [Range[0], Range[1]) with Text. Range is in byte
+// offsets internally; units carries the UTF-16 code-unit range ESLint reports
+// (set only for sources containing non-ASCII, see units.go).
+type Fix struct {
+	Range [2]int
+	Text  string
+	units *[2]int
+}
 
-// interpolate replaces {{key}} placeholders with the matching data value,
-// mirroring ESLint's interpolate.js for the placeholder shape we support.
+// FixMessage is one message's fix, used by the fixer.
+type FixMessage struct {
+	Message *Message
+	Fix     Fix
+}
+
+// MarshalJSON emits the message in ESLint's property order, with the same
+// conditional properties (messageId / endLine+endColumn / fix / fatal) and
+// ruleId:null and nodeType:null for fatal parse errors.
+func (m Message) MarshalJSON() ([]byte, error) {
+	var b bytes.Buffer
+	b.WriteByte('{')
+	if m.RuleID == "" {
+		b.WriteString(`"ruleId":null`)
+	} else {
+		b.WriteString(`"ruleId":` + jsonString(m.RuleID))
+	}
+	if m.Fatal {
+		b.WriteString(`,"fatal":true`)
+	}
+	b.WriteString(`,"severity":` + itoa(m.Severity))
+	b.WriteString(`,"message":` + jsonString(m.Message))
+	b.WriteString(`,"line":` + itoa(m.Line))
+	b.WriteString(`,"column":` + itoa(m.Column))
+	if m.NodeType == "" {
+		b.WriteString(`,"nodeType":null`)
+	} else {
+		b.WriteString(`,"nodeType":` + jsonString(m.NodeType))
+	}
+	if m.MessageID != "" {
+		b.WriteString(`,"messageId":` + jsonString(m.MessageID))
+	}
+	if m.EndLine != 0 || m.EndColumn != 0 {
+		b.WriteString(`,"endLine":` + itoa(m.EndLine))
+		b.WriteString(`,"endColumn":` + itoa(m.EndColumn))
+	}
+	if m.Fix != nil {
+		r := m.Fix.Range
+		if m.Fix.units != nil {
+			r = *m.Fix.units
+		}
+		b.WriteString(`,"fix":{"range":[` + itoa(r[0]) + `,` + itoa(r[1]) +
+			`],"text":` + jsonString(m.Fix.Text) + `}`)
+	}
+	b.WriteByte('}')
+	return b.Bytes(), nil
+}
+
+// jsonString encodes a Go string as JSON with HTML escaping disabled, so output
+// matches JSON.stringify byte for byte (Go's default would escape <, > and &).
+func jsonString(s string) string {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(s); err != nil {
+		return `""`
+	}
+	return strings.TrimRight(buf.String(), "\n")
+}
+
+// Report is the object passed to context.report().
+type Report struct {
+	// Node is the reported node (may be nil for a loc-only report).
+	Node Node
+	// Loc overrides the location ({start,end}); a {line,column} point is also
+	// accepted and yields a message with no end position.
+	Loc map[string]any
+	// Message is a literal message (mutually exclusive with MessageID).
+	Message string
+	// MessageID names a message in the rule's meta.messages.
+	MessageID string
+	// Data supplies {{placeholders}} for the message template.
+	Data map[string]any
+	// Fix produces a fix for the problem.
+	Fix func(*Fixer) *Fix
+}
+
+var interpolateRe = regexp.MustCompile(`\{\{\s*([^{}\s]+)\s*\}\}`)
+
+// interpolate replaces {{key}} placeholders, as ESLint's interpolate.js does
+// (an unknown placeholder is left untouched so the gap is visible rather than
+// silently dropped — also what ESLint does).
 func interpolate(template string, data map[string]any) string {
 	if data == nil {
 		return template
@@ -40,77 +128,130 @@ func interpolate(template string, data map[string]any) string {
 		if len(sub) < 2 {
 			return m
 		}
-		if v, ok := data[strings.TrimSpace(sub[1])]; ok {
-			s, ok := v.(string)
-			if ok {
-				return s
-			}
-			return valueString(v)
+		v, ok := data[sub[1]]
+		if !ok {
+			return m
 		}
-		return m
+		return dataToString(v)
 	})
 }
 
-func valueString(v any) string {
+func dataToString(v any) string {
 	switch t := v.(type) {
 	case string:
 		return t
 	case int:
 		return itoa(t)
 	case float64:
-		return itoa(int(t))
-	default:
-		return ""
+		return jsNumberString(t)
+	case bool:
+		if t {
+			return "true"
+		}
+		return "false"
+	case nil:
+		return "null"
+	case []any:
+		// JS String(array) joins with commas.
+		parts := make([]string, 0, len(t))
+		for _, el := range t {
+			parts = append(parts, dataToString(el))
+		}
+		return strings.Join(parts, ",")
+	case Node:
+		// JS String(object) — rules that pass a whole node as data see this.
+		return "[object Object]"
 	}
+	return ""
 }
 
-// normalizeReportLoc replicates report-translator's normalizeReportLoc.
-func normalizeReportLoc(d *ReportDescriptor) map[string]any {
+// jsNumberString formats a number the way JS String(number) does for the
+// integers and simple decimals rules interpolate.
+func jsNumberString(f float64) string {
+	if f == float64(int64(f)) {
+		return itoa(int(f))
+	}
+	return strconv.FormatFloat(f, 'f', -1, 64)
+}
+
+// normalizeReportLoc replicates report-translator's normalizeReportLoc: an
+// explicit loc wins; a bare {line,column} becomes {start, end:null} (which
+// suppresses endLine/endColumn); otherwise the node's loc is used.
+func normalizeReportLoc(d Report) map[string]any {
 	if d.Loc != nil {
 		if _, ok := d.Loc["start"]; ok {
 			return d.Loc
 		}
 		return map[string]any{"start": d.Loc, "end": nil}
 	}
-	return getLocObject(d.Node)
+	return Loc(d.Node)
 }
 
-func getLocObject(n Node) map[string]any {
-	if n == nil {
-		return nil
-	}
-	if loc, ok := n["loc"].(map[string]any); ok {
-		return loc
-	}
-	return nil
-}
-
-// createProblem replicates report-translator's createProblem for the
-// no-fix subset (fix and suggestions are NotImplemented for the starter set).
-func createProblem(ruleID string, severity int, node Node, message, messageID string, loc map[string]any) *Message {
+// createProblem replicates report-translator's createProblem. The loc columns
+// are converted to ESLint's UTF-16 code-unit space here, the last point at
+// which the source text is still available.
+func createProblem(ruleID string, severity int, node Node, message, messageID string, loc map[string]any, fix *Fix, sc *SourceCode) *Message {
 	nt := ""
 	if node != nil {
-		nt, _ = node["type"].(string)
+		nt = NodeType(node)
 	}
-	if nt == "" {
-		nt = "null"
+	if sc != nil {
+		loc = sc.locToCodeUnits(loc)
 	}
+	startLine, startCol := locPoint(loc, "start")
 	p := &Message{
 		RuleID:    ruleID,
 		Severity:  severity,
 		Message:   message,
-		Line:      locLine(loc, "start"),
-		Column:    locColumn(loc, "start") + 1,
+		Line:      startLine,
+		Column:    startCol + 1,
 		NodeType:  nt,
 		MessageID: messageID,
+		Fix:       fix,
 	}
 	if loc != nil {
-		if _, hasEnd := loc["end"]; hasEnd && loc["end"] != nil {
-			p.EndLine = locLine(loc, "end")
-			p.EndColumn = locColumn(loc, "end") + 1
+		if end, ok := loc["end"]; ok && end != nil {
+			endLine, endCol := locPoint(loc, "end")
+			p.EndLine = endLine
+			p.EndColumn = endCol + 1
 		}
 	}
 	return p
+}
+
+// fatalMessage builds the message ESLint emits when parsing fails.
+func fatalMessage(err error, normalized string, line, col int) *Message {
+	return &Message{
+		RuleID:   "",
+		Fatal:    true,
+		Severity: 2,
+		Message:  normalized,
+		Line:     line,
+		Column:   col,
+	}
+}
+
+// ParseErrorColumn converts a parser error's byte-based 1-based column into the
+// UTF-16 code-unit column ESLint reports (see units.go). It is a no-op for
+// ASCII-only text.
+func ParseErrorColumn(text string, line, col int) int {
+	if col <= 1 || !hasNonASCII(text) {
+		return col
+	}
+	li := NewLineIndex(text)
+	units := newCodeUnitTable(text)
+	byteOffset := li.Index(line, col-1)
+	lineStart := li.Index(line, 0)
+	return units.CodeUnits(byteOffset) - units.CodeUnits(lineStart) + 1
+}
+
+func hasNonASCII(text string) bool {
+	for i := 0; i < len(text); i++ {
+		if text[i] >= 0x80 {
+			return true
+		}
+	}
+	return false
 }
 
 func itoa(i int) string {

@@ -1,9 +1,9 @@
 package eslint
 
-// visitorKeys maps each ESTree node type to its child keys for traversal.
+// VisitorKeys maps each ESTree node type to its child keys for traversal.
 // Transcribed from eslint-visitor-keys (the canonical keys ESLint's Traverser
-// uses). Program/Program body coverage is what the starter rules rely on.
-var visitorKeys = map[string][]string{
+// uses and the table handed to eslint-scope as childVisitorKeys).
+var VisitorKeys = map[string][]string{
 	"AssignmentExpression":     {"left", "right"},
 	"AssignmentPattern":        {"left", "right"},
 	"ArrayExpression":          {"elements"},
