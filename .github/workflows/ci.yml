@@ -13,6 +13,11 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: 'stable'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: install the npm oracle
+        run: npm ci --omit=dev --prefix oracle
       - name: gofmt
         run: |
           unformatted="$(gofmt -l .)"
@@ -23,3 +28,5 @@ jobs:
         run: go vet ./...
       - name: test
         run: go test ./...
+      - name: end-to-end CLI parity
+        run: bash scripts/e2e.sh
