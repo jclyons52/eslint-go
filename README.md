@@ -62,7 +62,7 @@ rules over one traversal, and applies fixes with ESLint's own 10-pass loop.
 | `no-multiple-empty-lines` | `rules/nomultipleemptylines` | whitespace | 44 |
 | `no-new-object` | `rules/nonewobject` | — | 33 |
 | `no-new-wrappers` | `rules/nonewwrappers` | — | 31 |
-| `no-redeclare` | `rules/noredeclare` | — | 41 |
+| `no-redeclare` | `rules/noredeclare` | — | 40 |
 | `no-self-compare` | `rules/noselfcompare` | — | 63 |
 | `no-shadow` | `rules/noshadow` | — | 53 |
 | `no-sparse-arrays` | `rules/nosparsearrays` | — | 22 |
@@ -70,7 +70,7 @@ rules over one traversal, and applies fixes with ESLint's own 10-pass loop.
 | `no-trailing-spaces` | `rules/notrailingspaces` | whitespace | 22 |
 | `no-undef` | `rules/noundef` | — | 24 |
 | `no-unsafe-negation` | `rules/nounsafenegation` | — | 52 |
-| `no-unused-vars` | `rules/nounusedvars` | — | 196 |
+| `no-unused-vars` | `rules/nounusedvars` | — | 192 |
 | `no-var` | `rules/novar` | code | 68 |
 | `no-whitespace-before-property` | `rules/nowhitespacebeforeproperty` | whitespace | 45 |
 | `prefer-const` | `rules/preferconst` | code | 54 |
@@ -82,7 +82,7 @@ rules over one traversal, and applies fixes with ESLint's own 10-pass loop.
 | `valid-typeof` | `rules/validtypeof` | — | 78 |
 | `yoda` | `rules/yoda` | code | 76 |
 
-Total oracle cases across the rule suites: 2437.
+Total oracle cases across the rule suites: 2432.
 <!-- rule-table:end -->
 
 Rules are added as independent packages under `rules/<name>/`; each one ships a
@@ -99,6 +99,7 @@ in `oracle/` (`npm install` there first):
 |---|---|---|
 | end-to-end CLI | stdout, exit code and `--fix` file contents vs `eslint` | `scripts/e2e.sh` |
 | rules | per-rule message JSON + fixed text vs `Linter.verify`/`verifyAndFix` | `go test ./rules/...` |
+| rule counts | every declared oracle case actually runs and matches | `scripts/rule-case-count.sh` |
 | parser + scope | full ASTs / ScopeManager serializations vs `espree` / `eslint-scope` | in the sibling repos |
 | whole suite | build, vet, fmt, tests | `go build ./... && go vet ./... && gofmt -l . && go test ./...` |
 

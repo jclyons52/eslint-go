@@ -14,6 +14,10 @@ import pathlib
 import re
 import sys
 
+# Same case counting as the registry generator: a commented-out case literal is
+# a note, not a case that runs (see count_cases).
+from gen_rule_registry import count_cases
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 RULES = ROOT / "rules"
 README = ROOT / "README.md"
@@ -41,7 +45,7 @@ def rule_rows():
         tests = list(pkg.glob("*_test.go"))
         cases = 0
         for t in tests:
-            cases += len(TESTCASE_RE.findall(t.read_text()))
+            cases += count_cases(t.read_text())
         rows.append((pkg.name, rule_id, cases, fix.group(1) if fix else None,
                      None if tests else "no parity test"))
     return rows

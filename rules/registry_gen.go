@@ -84,7 +84,7 @@ var registry = []eslint.Rule{
 	nomultispaces.Rule,              // no-multi-spaces: 42 oracle cases
 	nonewobject.Rule,                // no-new-object: 33 oracle cases
 	nonewwrappers.Rule,              // no-new-wrappers: 31 oracle cases
-	noredeclare.Rule,                // no-redeclare: 41 oracle cases
+	noredeclare.Rule,                // no-redeclare: 40 oracle cases
 	noselfcompare.Rule,              // no-self-compare: 63 oracle cases
 	noshadow.Rule,                   // no-shadow: 53 oracle cases
 	nosparsearrays.Rule,             // no-sparse-arrays: 22 oracle cases
@@ -92,7 +92,7 @@ var registry = []eslint.Rule{
 	notrailingspaces.Rule,           // no-trailing-spaces: 22 oracle cases
 	noundef.Rule,                    // no-undef: 24 oracle cases
 	nounsafenegation.Rule,           // no-unsafe-negation: 52 oracle cases
-	nounusedvars.Rule,               // no-unused-vars: 196 oracle cases
+	nounusedvars.Rule,               // no-unused-vars: 192 oracle cases
 	novar.Rule,                      // no-var: 68 oracle cases
 	nowhitespacebeforeproperty.Rule, // no-whitespace-before-property: 45 oracle cases
 	preferconst.Rule,                // prefer-const: 54 oracle cases

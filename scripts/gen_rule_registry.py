@@ -22,6 +22,19 @@ NAME_RE = re.compile(r'const Name = "([^"]+)"')
 CASE_RE = re.compile(r'\bID:\s*"')
 
 
+def count_cases(text):
+    """Count the case literals a test file actually runs.
+
+    Cases are `{ID: "..."}` entries in the slice handed to ruletest.Compare, so
+    a whole-line comment is not a case: several corpora keep a commented-out
+    entry as a note about a known gap (e.g. `// NOTE (core gap 3): {ID: ...}`),
+    and counting those inflates the published figure. Comparing this count to
+    the runtime "N cases, 0 mismatches" line per rule is what caught it.
+    """
+    live = [ln for ln in text.splitlines() if not ln.lstrip().startswith("//")]
+    return len(CASE_RE.findall("\n".join(live)))
+
+
 def discover():
     entries = []
     for pkg in sorted(p for p in RULES.iterdir() if p.is_dir()):
@@ -32,7 +45,7 @@ def discover():
         if not m:
             continue
         tests = list(pkg.glob("*_test.go"))
-        cases = sum(len(CASE_RE.findall(t.read_text())) for t in tests)
+        cases = sum(count_cases(t.read_text()) for t in tests)
         entries.append((pkg.name, m.group(1), cases))
     return entries
 
