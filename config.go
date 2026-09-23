@@ -24,6 +24,10 @@ type Config struct {
 	ParserOptions map[string]any
 	// Globals maps global names to true (writable and/or explicitly allowed).
 	Globals map[string]bool
+	// DisabledGlobals holds names switched off with `"off"`. ESLint removes the
+	// global entirely, so they are undeclared even if an earlier layer (the
+	// ecmaVersion builtins or an env) defined them.
+	DisabledGlobals map[string]bool
 	// Settings is config.settings.
 	Settings map[string]any
 	// Env maps environment names to true.
@@ -37,11 +41,12 @@ type Config struct {
 // NewConfig returns an empty config.
 func NewConfig() *Config {
 	return &Config{
-		Rules:         map[string]any{},
-		ParserOptions: map[string]any{},
-		Globals:       map[string]bool{},
-		Settings:      map[string]any{},
-		Env:           map[string]bool{},
+		Rules:           map[string]any{},
+		ParserOptions:   map[string]any{},
+		Globals:         map[string]bool{},
+		DisabledGlobals: map[string]bool{},
+		Settings:        map[string]any{},
+		Env:             map[string]bool{},
 	}
 }
 
@@ -225,6 +230,12 @@ func ParseConfigJSON(data []byte) (*Config, error) {
 				case bool:
 					cfg.Globals[k] = t
 				case string:
+					if t == "off" {
+						// ESLint deletes the global, so the name becomes
+						// undeclared again (env/builtin layers included).
+						cfg.DisabledGlobals[k] = true
+						continue
+					}
 					cfg.Globals[k] = t == "writable" || t == "writeable" || t == "readonly" || t == "readable"
 				default:
 					cfg.Globals[k] = true

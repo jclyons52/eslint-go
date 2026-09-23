@@ -55,6 +55,20 @@ func applyConfiguredGlobals(sm *eslintscope.ScopeManager, cfg *Config) {
 		}
 		names[name] = value
 	}
+	// `"off"` removes the name, including from the layers above: ESLint deletes
+	// the global, so `globals: {Array: "off"}` makes `Array` undeclared again.
+	for name := range cfg.DisabledGlobals {
+		delete(names, name)
+		if variable := globalScope.Set[name]; variable != nil {
+			delete(globalScope.Set, name)
+			for i, v := range globalScope.Variables {
+				if v == variable {
+					globalScope.Variables = append(globalScope.Variables[:i], globalScope.Variables[i+1:]...)
+					break
+				}
+			}
+		}
+	}
 
 	for name, value := range names {
 		if value == "off" {

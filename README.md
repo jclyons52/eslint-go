@@ -61,7 +61,7 @@ rules over one traversal, and applies fixes with ESLint's own 10-pass loop.
 | `no-multi-spaces` | `rules/nomultispaces` | whitespace | 42 |
 | `no-multiple-empty-lines` | `rules/nomultipleemptylines` | whitespace | 44 |
 | `no-new-object` | `rules/nonewobject` | — | 33 |
-| `no-new-wrappers` | `rules/nonewwrappers` | — | 31 |
+| `no-new-wrappers` | `rules/nonewwrappers` | — | 33 |
 | `no-redeclare` | `rules/noredeclare` | — | 43 |
 | `no-self-compare` | `rules/noselfcompare` | — | 63 |
 | `no-shadow` | `rules/noshadow` | — | 54 |
@@ -82,7 +82,7 @@ rules over one traversal, and applies fixes with ESLint's own 10-pass loop.
 | `valid-typeof` | `rules/validtypeof` | — | 78 |
 | `yoda` | `rules/yoda` | code | 76 |
 
-Total oracle cases across the rule suites: 2459.
+Total oracle cases across the rule suites: 2461.
 <!-- rule-table:end -->
 
 Rules are added as independent packages under `rules/<name>/`; each one ships a
@@ -171,10 +171,12 @@ that references unported rules is visibly incomplete instead of silently quieter
 These are deliberate and documented rather than hidden. Everything else aims at
 byte equality.
 
-- **`sourceType` is parsed as a module.** The underlying `acorn-go` parser is
-  module-only, so script-only syntax (`with`, legacy octal literals, duplicate
-  parameters in sloppy mode) fails to parse where ESLint with
-  `sourceType: "script"` accepts it. Already-strict code parses identically.
+- **Parser early errors are not implemented.** acorn's early-error checks for
+  duplicate declarations are missing, so a file ESLint rejects — `let x; let x;`,
+  `class A {} class A {}`, `function f() {} function f() {}` (module code),
+  `let x; var x;` — parses here and gets linted, where ESLint reports
+  `Parsing error: Identifier 'x' has already been declared`. Well-formed code is
+  unaffected; the port is permissive, never stricter, on this axis.
 - **Newer syntax may parse.** `espree-go` parses at acorn's *latest* grammar,
   while ESLint 8.57 caps at ES2024 (ecmaVersion 15, which is what this port uses
   for scope analysis). A file using post-ES2024 syntax can therefore parse here

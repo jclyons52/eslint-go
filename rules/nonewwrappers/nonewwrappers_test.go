@@ -49,15 +49,19 @@ func TestParity(t *testing.T) {
 		{ID: "shadow-in-class", Code: "class A { m(String) { return new String('x'); } }"},
 
 		// Configured globals: the built-in stays a global.
-		//
-		// NOT COVERED: `globals: {String: "off"}` removes the language global
-		// in ESLint, so the JS rule reports nothing; the Go rule reports,
-		// because the core never seeds the global scope with the ecmaVersion's
-		// language globals and a rule cannot see a configured global. See the
-		// note in nonewwrappers.go.
 		{ID: "global-readonly", Code: "new String('x');", Config: map[string]any{
 			"rules":   map[string]any{Name: 2},
 			"globals": map[string]any{"String": "readonly"},
+		}},
+		{ID: "global-writable", Code: "new String('x');", Config: map[string]any{
+			"rules":   map[string]any{Name: 2},
+			"globals": map[string]any{"String": "writable"},
+		}},
+		// `"off"` deletes the global, so the name is undeclared and the rule
+		// reports nothing — the core removes it from the global scope.
+		{ID: "global-off", Code: "new String('x');", Config: map[string]any{
+			"rules":   map[string]any{Name: 2},
+			"globals": map[string]any{"String": "off"},
 		}},
 
 		// Severity.

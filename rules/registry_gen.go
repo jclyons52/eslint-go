@@ -83,7 +83,7 @@ var registry = []eslint.Rule{
 	nomultipleemptylines.Rule,       // no-multiple-empty-lines: 44 oracle cases
 	nomultispaces.Rule,              // no-multi-spaces: 42 oracle cases
 	nonewobject.Rule,                // no-new-object: 33 oracle cases
-	nonewwrappers.Rule,              // no-new-wrappers: 31 oracle cases
+	nonewwrappers.Rule,              // no-new-wrappers: 33 oracle cases
 	noredeclare.Rule,                // no-redeclare: 43 oracle cases
 	noselfcompare.Rule,              // no-self-compare: 63 oracle cases
 	noshadow.Rule,                   // no-shadow: 54 oracle cases
