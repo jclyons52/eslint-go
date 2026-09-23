@@ -35,8 +35,10 @@ func TestParity(t *testing.T) {
 		{ID: "always-import-default-only", Code: "import a from 'm';", Options: []any{"always"}},
 		{ID: "always-import-mixed", Code: "import a, { b } from 'm';", Options: []any{"always"}, Fix: true},
 		{ID: "always-import-namespace", Code: "import * as ns from 'm';", Options: []any{"always"}},
-		{ID: "always-export", Code: "export { a, b };", Options: []any{"always"}, Fix: true},
-		{ID: "always-export-one", Code: "export { a };", Options: []any{"always"}, Fix: true},
+		{ID: "always-export", Code: "var a = 1, b = 2;\nexport { a, b };", Options: []any{"always"}, Fix: true},
+		{ID: "always-export-one", Code: "var a = 1;\nexport { a };", Options: []any{"always"}, Fix: true},
+		{ID: "always-export-renamed", Code: "var a = 1;\nexport { a as b };", Options: []any{"always"}, Fix: true},
+		{ID: "always-export-present-ok", Code: "var a = 1;\nexport { a, };", Options: []any{"always"}},
 		{ID: "always-export-default", Code: "export default 1;", Options: []any{"always"}},
 		{ID: "always-object-pattern", Code: "var { a } = b;", Options: []any{"always"}, Fix: true},
 		{ID: "always-array-pattern", Code: "var [a, b] = c;", Options: []any{"always"}, Fix: true},
@@ -73,7 +75,7 @@ func TestParity(t *testing.T) {
 		{ID: "obj-functions-ignore", Code: "f(a);", Options: []any{map[string]any{"functions": "ignore"}}},
 		{ID: "obj-functions-ignore-objects", Code: "var o = { a: 1, };\nf(a);",
 			Options: []any{map[string]any{"functions": "ignore"}}, Fix: true},
-		{ID: "obj-exports-always", Code: "export { a };", Options: []any{map[string]any{"exports": "always"}}, Fix: true},
+		{ID: "obj-exports-always", Code: "var a = 1;\nexport { a };", Options: []any{map[string]any{"exports": "always"}}, Fix: true},
 		{ID: "obj-imports-never", Code: "import { a, } from 'm';", Options: []any{map[string]any{"imports": "never"}}, Fix: true},
 		{ID: "obj-mixed", Code: "var a = [1];\nvar o = { b: 2, };",
 			Options: []any{map[string]any{"arrays": "always", "objects": "never"}}, Fix: true},
@@ -118,10 +120,21 @@ func TestECMAVersionParity(t *testing.T) {
 		{ID: "ev-2017-functions-apply", Code: "function f(a) {}", Config: withEv(2017), Fix: true},
 		{ID: "ev-2022-functions-apply", Code: "f(a);", Config: withEv(2022), Fix: true},
 		{ID: "ev-2016-arrow-ignored", Code: "var g = (a) => a;", Config: withEv(2016), Fix: true},
-		{ID: "ev-2015-object-form", Code: "function f(a) {}",
+		// The object form reads `functions` literally (ecmaVersion is not
+		// consulted). Only the "ignore" direction is testable here: with
+		// ecmaVersion < 2017 a "always"/"always-multiline" fix would emit a
+		// trailing comma in a parameter list, which the oracle then rejects at
+		// parse time while the Go parser (latest-ECMAScript, module-only)
+		// accepts it — the documented parser divergence.
+		{ID: "ev-2015-object-form-ignore", Code: "function f(a) {}",
 			Config: map[string]any{
 				"parserOptions": map[string]any{"ecmaVersion": 2015},
-				"rules":         map[string]any{Name: []any{2, map[string]any{"functions": "always"}}},
+				"rules":         map[string]any{Name: []any{2, map[string]any{"functions": "ignore"}}},
+			}},
+		{ID: "ev-2015-object-form-objects", Code: "var o = { a: 1 };",
+			Config: map[string]any{
+				"parserOptions": map[string]any{"ecmaVersion": 2015},
+				"rules":         map[string]any{Name: []any{2, map[string]any{"objects": "always"}}},
 			}, Fix: true},
 	})
 }

@@ -48,6 +48,10 @@ func TestParity(t *testing.T) {
 		{ID: "multi-unsafe-if-else", Code: "if (a) {\n  if (b) c();\n} else {\n  d();\n}\n", Options: []any{"multi"}, Fix: true},
 		{ID: "multi-nested-block-body", Code: "if (foo) { while (x) {} } baz();\n", Options: []any{"multi"}, Fix: true},
 		{ID: "multi-no-fix-same-line", Code: "if (foo) { bar() } baz();\n", Options: []any{"multi"}},
+		{ID: "multi-no-fix-increment", Code: "if (foo) { bar++ }\nbaz();\n", Options: []any{"multi"}},
+		{ID: "multi-no-fix-unsafe-start", Code: "if (foo) { bar() }\n(baz)();\n", Options: []any{"multi"}},
+		{ID: "multi-no-fix-slash-start", Code: "if (foo) { bar() }\n/x/.test(baz);\n", Options: []any{"multi"}},
+		{ID: "multi-fix-next-line", Code: "if (foo) { bar() }\nbaz();\n", Options: []any{"multi"}, Fix: true},
 		{ID: "multi-function-body-block", Code: "if (foo) { const f = function () {}; }\n", Options: []any{"multi"}},
 
 		// ---- multi-or-nest ----
@@ -57,6 +61,8 @@ func TestParity(t *testing.T) {
 		{ID: "multi-or-nest-multiline-body", Code: "if (foo)\n  bar(\n  baz);\n", Options: []any{"multi-or-nest"}, Fix: true},
 		{ID: "multi-or-nest-block-multiline", Code: "if (foo) { bar(\n  baz); }\n", Options: []any{"multi-or-nest"}},
 		{ID: "multi-or-nest-comment-in-block", Code: "if (foo) { /* c */ bar(); }\n", Options: []any{"multi-or-nest"}},
+		{ID: "multi-or-nest-empty-statement", Code: "if (foo);\n", Options: []any{"multi-or-nest"}},
+		{ID: "multi-or-nest-empty-statement-block", Code: "if (foo) { ; }\n", Options: []any{"multi-or-nest"}, Fix: true},
 
 		// ---- consistent ----
 		{ID: "consistent-mixed-chain", Code: "if (foo) { bar(); } else baz();\n", Options: []any{"multi-or-nest", "consistent"}, Fix: true},

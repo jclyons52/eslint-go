@@ -104,9 +104,13 @@ func variableScopeOf(scope *eslintscope.Scope) *eslintscope.Scope {
 // configured-globals augmentation touched the variable. eslint-scope-go's
 // Variable only carries a `Writeable` bool, so this is a private stand-in: a
 // marked global, or a global the augmentation created from scratch (the only
-// variable anywhere with neither identifiers nor definitions). Known
-// limitation: a *readonly* global that also has a syntax declaration in the
-// global scope is indistinguishable from an unconfigured one.
+// variable anywhere with neither identifiers nor definitions).
+//
+// Unlike no-redeclare this stand-in is exact here: the `writeable` test is only
+// reached when `shadowed.identifiers.length === 0`, and a global with no
+// identifiers is either augmentation-created (caught below) or an
+// eslint-scope implicit global, which lives in `scope.implicit` and so is
+// invisible to getVariableByName in both implementations.
 func isConfiguredGlobal(variable *eslintscope.Variable) bool {
 	if variable.Scope == nil || variable.Scope.Type != eslintscope.ScopeGlobal {
 		return false

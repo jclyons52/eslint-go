@@ -79,6 +79,14 @@ func create(ctx *eslint.Context) map[string]func(eslint.Node) {
 				Node:      node,
 				MessageID: "unexpected",
 				Data:      map[string]any{"type": "block"},
+				Suggest: []eslint.Suggestion{{
+					MessageID: "suggestComment",
+					Data:      map[string]any{"type": "block"},
+					Fix: func(f *eslint.Fixer) *eslint.Fix {
+						return f.ReplaceTextRange(
+							[2]int{eslint.Start(node) + 1, eslint.End(node) - 1}, " /* empty */ ")
+					},
+				}},
 			})
 		},
 

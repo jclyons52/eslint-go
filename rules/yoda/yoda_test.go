@@ -1,0 +1,123 @@
+package yoda
+
+import (
+	"testing"
+
+	"github.com/jclyons52/eslint-go/internal/ruletest"
+)
+
+func TestParity(t *testing.T) {
+	ruletest.Compare(t, Rule, []ruletest.Case{
+		// Default ("never"): the literal must not be on the left.
+		{ID: "eq-literal-left", Code: "if (1 === x) {}\n", Fix: true},
+		{ID: "eq-literal-left-spaced", Code: "if (1 === x) {}\n", Fix: true},
+		{ID: "eq-literal-right", Code: "if (x === 1) {}\n"},
+		{ID: "eqeq-literal-left", Code: "if (1 == x) {}\n", Fix: true},
+		{ID: "ne-literal-left", Code: "if (1 !== x) {}\n", Fix: true},
+		{ID: "neq-literal-left", Code: "if (1 != x) {}\n", Fix: true},
+		{ID: "lt-literal-left", Code: "if (1 < x) {}\n", Fix: true},
+		{ID: "gt-literal-left", Code: "if (1 > x) {}\n", Fix: true},
+		{ID: "le-literal-left", Code: "if (1 <= x) {}\n", Fix: true},
+		{ID: "ge-literal-left", Code: "if (1 >= x) {}\n", Fix: true},
+		{ID: "lt-literal-right", Code: "if (x < 1) {}\n"},
+		{ID: "identifier-both", Code: "if (x === y) {}\n"},
+		{ID: "literal-both", Code: "if (1 === 2) {}\n"},
+		{ID: "string-literal-left", Code: "if (\"a\" === x) {}\n", Fix: true},
+		{ID: "template-literal-left", Code: "if (`a` === x) {}\n", Fix: true},
+		{ID: "dynamic-template-left", Code: "if (`${a}` === x) {}\n"},
+		{ID: "bigint-literal-left", Code: "if (1n === x) {}\n", Fix: true},
+		{ID: "regex-literal-left", Code: "if (/a/ === x) {}\n", Fix: true},
+		{ID: "null-literal-left", Code: "if (null === x) {}\n", Fix: true},
+		{ID: "true-literal-left", Code: "if (true === x) {}\n", Fix: true},
+		{ID: "negative-literal-left", Code: "if (-1 === x) {}\n", Fix: true},
+		{ID: "negative-literal-right", Code: "if (x === -1) {}\n"},
+		{ID: "unary-minus-right", Code: "if (1 === -y) {}\n", Fix: true},
+		{ID: "member-right", Code: "if (1 === a.b) {}\n", Fix: true},
+		{ID: "optional-member-right", Code: "if (1 === a?.b) {}\n", Fix: true},
+		{ID: "assignment", Code: "a = 1 === x;\n", Fix: true},
+		{ID: "two-comparisons", Code: "if (1 === x && 2 === y) {}\n", Fix: true},
+		{ID: "clean-conjunction", Code: "if (x === 1 || y === 2) {}\n"},
+		{ID: "parenthesised", Code: "if ((1 === x)) {}\n", Fix: true},
+		{ID: "parenthesised-left-operand", Code: "if ((x) === 1) {}\n", Fix: true},
+		{ID: "tight", Code: "if(1===x){}\n", Fix: true},
+		{ID: "nested-in-call", Code: "f(1 === x);\n", Fix: true},
+		{ID: "non-comparison", Code: "if (1 + x) {}\n"},
+		{ID: "arithmetic-literal-left", Code: "if (1 - x) {}\n"},
+
+		// "always": the literal must be on the left.
+		{ID: "always-literal-right", Code: "if (x === 1) {}\n", Options: []any{"always"}, Fix: true},
+		{ID: "always-literal-left", Code: "if (1 === x) {}\n", Options: []any{"always"}},
+		{ID: "always-lt", Code: "if (x < 1) {}\n", Options: []any{"always"}, Fix: true},
+		{ID: "always-le", Code: "if (x <= 1) {}\n", Options: []any{"always"}, Fix: true},
+		{ID: "always-gt", Code: "if (x > 1) {}\n", Options: []any{"always"}, Fix: true},
+		{ID: "always-string", Code: "if (x === \"a\") {}\n", Options: []any{"always"}, Fix: true},
+		{ID: "always-template", Code: "if (x === `a`) {}\n", Options: []any{"always"}, Fix: true},
+		{ID: "always-negative", Code: "if (x === -1) {}\n", Options: []any{"always"}, Fix: true},
+		{ID: "always-identifiers", Code: "if (x === y) {}\n", Options: []any{"always"}},
+
+		// exceptRange.
+		{ID: "range-between", Code: "if (0 <= x && x < 1) {}\n",
+			Options: []any{"never", map[string]any{"exceptRange": true}}},
+		{ID: "range-between-strict", Code: "if (0 < x && x < 1) {}\n",
+			Options: []any{"never", map[string]any{"exceptRange": true}}},
+		{ID: "range-outside", Code: "if (x < 0 || 1 <= x) {}\n",
+			Options: []any{"never", map[string]any{"exceptRange": true}}},
+		{ID: "range-between-no-option", Code: "if (0 <= x && x < 1) {}\n", Fix: true},
+		{ID: "range-not-parenthesised", Code: "0 <= x && x < 1;\n",
+			Options: []any{"never", map[string]any{"exceptRange": true}}, Fix: true},
+		{ID: "range-double-parenthesised", Code: "if ((0 <= x && x < 1)) {}\n",
+			Options: []any{"never", map[string]any{"exceptRange": true}}},
+		{ID: "range-inverted-literals", Code: "if (1 <= x && x < 0) {}\n",
+			Options: []any{"never", map[string]any{"exceptRange": true}}, Fix: true},
+		{ID: "range-different-variables", Code: "if (0 <= x && y < 1) {}\n",
+			Options: []any{"never", map[string]any{"exceptRange": true}}, Fix: true},
+		{ID: "range-member", Code: "if (0 <= a.b && a.b < 1) {}\n",
+			Options: []any{"never", map[string]any{"exceptRange": true}}},
+		{ID: "range-member-static-key", Code: "if (0 <= a[\"b\"] && a.b < 1) {}\n",
+			Options: []any{"never", map[string]any{"exceptRange": true}}},
+		{ID: "range-computed", Code: "if (0 <= a[i] && a[i] < 1) {}\n",
+			Options: []any{"never", map[string]any{"exceptRange": true}}},
+		{ID: "range-computed-different", Code: "if (0 <= a[i] && a[j] < 1) {}\n",
+			Options: []any{"never", map[string]any{"exceptRange": true}}, Fix: true},
+		{ID: "range-negative-literal", Code: "if (-1 <= x && x < 1) {}\n",
+			Options: []any{"never", map[string]any{"exceptRange": true}}},
+		{ID: "range-inverted-negative", Code: "if (1 <= x && x < -1) {}\n",
+			Options: []any{"never", map[string]any{"exceptRange": true}}, Fix: true},
+		{ID: "range-template-literal", Code: "if (0 <= x && x < `1`) {}\n",
+			Options: []any{"never", map[string]any{"exceptRange": true}}},
+		{ID: "range-one-literal-only", Code: "if (0 <= x && x < y) {}\n",
+			Options: []any{"never", map[string]any{"exceptRange": true}}},
+		{ID: "range-while", Code: "while (0 <= x && x < 1) { x++; }\n",
+			Options: []any{"never", map[string]any{"exceptRange": true}}},
+		{ID: "range-outside-other-vars", Code: "if (x < 0 || 1 <= y) {}\n",
+			Options: []any{"never", map[string]any{"exceptRange": true}}, Fix: true},
+		{ID: "range-always", Code: "if (x < 1 && 1 <= x) {}\n",
+			Options: []any{"always", map[string]any{"exceptRange": true}}, Fix: true},
+
+		// onlyEquality.
+		{ID: "only-equality-lt", Code: "if (1 < x) {}\n",
+			Options: []any{"never", map[string]any{"onlyEquality": true}}},
+		{ID: "only-equality-eq", Code: "if (1 === x) {}\n",
+			Options: []any{"never", map[string]any{"onlyEquality": true}}, Fix: true},
+		{ID: "only-equality-eqeq", Code: "if (1 == x) {}\n",
+			Options: []any{"never", map[string]any{"onlyEquality": true}}, Fix: true},
+		{ID: "only-equality-ne", Code: "if (1 !== x) {}\n",
+			Options: []any{"never", map[string]any{"onlyEquality": true}}},
+		{ID: "only-equality-gt", Code: "if (1 > x) {}\n",
+			Options: []any{"never", map[string]any{"onlyEquality": true}}},
+
+		// Severity and clean files.
+		{ID: "warn", Code: "if (1 === x) {}\n", Config: map[string]any{"rules": map[string]any{Name: "warn"}}},
+		{ID: "off", Code: "if (1 === x) {}\n", Config: map[string]any{"rules": map[string]any{Name: "off"}}},
+		{ID: "clean", Code: "if (x === 1 && y < 2) {}\nwhile (a < b) { a++; }\n"},
+
+		// Non-ASCII: reported columns and fix ranges are UTF-16 code units.
+		{ID: "nonascii-operand", Code: "if (1 === caf\u00e9) {}\n", Fix: true},
+		{ID: "nonascii-string", Code: "if (\"\u4f60\u597d\" === x) {}\n", Fix: true},
+		{ID: "nonascii-template", Code: "if (`\u4f60\u597d` === x) {}\n", Fix: true},
+		{ID: "nonascii-emoji-string", Code: "if (\"\U0001f600\" === x) {}\n", Fix: true},
+		{ID: "nonascii-range", Code: "if (0 <= caf\u00e9 && caf\u00e9 < 1) {}\n",
+			Options: []any{"never", map[string]any{"exceptRange": true}}},
+		{ID: "nonascii-clean", Code: "if (caf\u00e9 === 1) {}\n"},
+	})
+}

@@ -38,6 +38,9 @@ func TestParity(t *testing.T) {
 		{ID: "optional-chain-member-after", Code: "foo?.[\"bar\"].baz;\n", Fix: true},
 		{ID: "optional-chain-in-after", Code: "var x = foo?.[\"bar\"]in obj;\n", Fix: true},
 		{ID: "numeric-object", Code: "(1)[\"toString\"];\n", Fix: true},
+		{ID: "numeric-float-object", Code: "(1.5)[\"toFixed\"];\n", Fix: true},
+		{ID: "numeric-exponent-object", Code: "(1e3)[\"toFixed\"];\n", Fix: true},
+		{ID: "numeric-hex-object", Code: "(0x10)[\"toString\"];\n", Fix: true},
 		{ID: "comment-in-brackets", Code: "foo[/* c */\"bar\"];\n"},
 		{ID: "comment-in-brackets-line", Code: "foo[// c\n\"bar\"];\n"},
 		{ID: "proto-key", Code: "obj[\"__proto__\"];\n", Fix: true},
@@ -65,6 +68,10 @@ func TestParity(t *testing.T) {
 		{ID: "pattern-lowercase-only", Code: "foo[\"Bar\"];\n", Options: []any{map[string]any{"allowPattern": "^[a-z]+$"}}, Fix: true},
 		{ID: "pattern-with-keywords", Code: "foo[\"_catch\"];\n", Options: []any{map[string]any{"allowKeywords": false, "allowPattern": "^_"}}},
 		{ID: "pattern-template", Code: "foo[`_bar`];\n", Options: []any{map[string]any{"allowPattern": "^_"}}},
+		{ID: "pattern-unicode-escape", Code: "foo[\"_bar\"];\n", Options: []any{map[string]any{"allowPattern": "^\\u005f"}}},
+		{ID: "pattern-unicode-escape-other", Code: "foo[\"bar\"];\n", Options: []any{map[string]any{"allowPattern": "^\\u005f"}}, Fix: true},
+		{ID: "pattern-empty", Code: "foo[\"bar\"];\n", Options: []any{map[string]any{"allowPattern": ""}}, Fix: true},
+		{ID: "pattern-dollar", Code: "foo[\"$bar\"];\n", Options: []any{map[string]any{"allowPattern": "^\\$"}}},
 
 		// ---- non-ASCII (fix ranges are UTF-16 code units) ----
 		{ID: "nonascii-before", Code: "var s = \"h\u00e9llo\"; foo[\"bar\"];\n", Fix: true},

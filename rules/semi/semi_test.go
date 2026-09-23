@@ -90,6 +90,13 @@ func TestParity(t *testing.T) {
 		{ID: "never-class-field", Code: "class A {\n  a = 1;\n}\n", Options: []any{"never"}, Fix: true},
 		{ID: "never-class-field-get", Code: "class A {\n  get\n  foo() {}\n}\n", Options: []any{"never"}},
 		{ID: "never-class-field-static", Code: "class A {\n  static\n  foo() {}\n}\n", Options: []any{"never"}},
+		{ID: "never-class-field-get-semi", Code: "class A {\n  get;\n  foo() {}\n}\n", Options: []any{"never"}},
+		{ID: "never-class-field-set-semi", Code: "class A {\n  set;\n  foo() {}\n}\n", Options: []any{"never"}},
+		{ID: "never-class-field-static-semi", Code: "class A {\n  static;\n  foo() {}\n}\n", Options: []any{"never"}},
+		{ID: "never-class-field-get-value", Code: "class A {\n  get = 1;\n  foo() {}\n}\n", Options: []any{"never"}, Fix: true},
+		{ID: "never-class-field-computed", Code: "class A {\n  [\"get\"];\n  foo() {}\n}\n", Options: []any{"never"}, Fix: true},
+		{ID: "never-class-field-numeric-key", Code: "class A {\n  1;\n  foo() {}\n}\n", Options: []any{"never"}, Fix: true},
+		{ID: "never-class-field-static-static-value", Code: "class A {\n  static static = 1;\n  foo() {}\n}\n", Options: []any{"never"}, Fix: true},
 		{ID: "never-class-field-static-static", Code: "class A {\n  static static;\n}\n", Options: []any{"never"}, Fix: true},
 		{ID: "never-class-field-follow-star", Code: "class A {\n  a;\n  *gen() {}\n}\n", Options: []any{"never"}, Fix: true},
 		{ID: "never-class-field-follow-in", Code: "class A {\n  a;\n  in;\n}\n", Options: []any{"never"}},
@@ -107,6 +114,38 @@ func TestParity(t *testing.T) {
 		{ID: "bsc-never-return", Code: "function f() {\n  return\n  x()\n}\n", Options: []any{"never", map[string]any{"beforeStatementContinuationChars": "never"}}},
 		{ID: "bsc-always-classfield", Code: "class A {\n  a\n  [b]() {}\n}\n", Options: []any{"never", map[string]any{"beforeStatementContinuationChars": "always"}}},
 		{ID: "bsc-default", Code: "var a = 1\nvar b = 2\n", Options: []any{"never"}},
+
+		// ---- maybeAsiHazardAfter: statement kinds that never connect to the
+		// next line, paired with a following hazard token so bsc "never" and
+		// "any" must disagree ----
+		{ID: "bsc-never-return-nohazard-any", Code: "function f() {\n  return;\n  (x)()\n}\n", Options: []any{"never", map[string]any{"beforeStatementContinuationChars": "any"}}},
+		{ID: "bsc-never-return-nohazard-never", Code: "function f() {\n  return;\n  (x)()\n}\n", Options: []any{"never", map[string]any{"beforeStatementContinuationChars": "never"}}, Fix: true},
+		{ID: "bsc-never-return-value-any", Code: "function f() {\n  return 1;\n  (x)()\n}\n", Options: []any{"never", map[string]any{"beforeStatementContinuationChars": "any"}}},
+		{ID: "bsc-never-return-value-never", Code: "function f() {\n  return 1;\n  (x)()\n}\n", Options: []any{"never", map[string]any{"beforeStatementContinuationChars": "never"}}},
+		{ID: "bsc-never-dowhile-any", Code: "do {\n  a();\n} while (b);\n(function() {})()\n", Options: []any{"never", map[string]any{"beforeStatementContinuationChars": "any"}}},
+		{ID: "bsc-never-dowhile-never", Code: "do {\n  a();\n} while (b);\n(function() {})()\n", Options: []any{"never", map[string]any{"beforeStatementContinuationChars": "never"}}, Fix: true},
+		{ID: "bsc-never-break-any", Code: "while (a) {\n  break;\n  (x)()\n}\n", Options: []any{"never", map[string]any{"beforeStatementContinuationChars": "any"}}},
+		{ID: "bsc-never-break-never", Code: "while (a) {\n  break;\n  (x)()\n}\n", Options: []any{"never", map[string]any{"beforeStatementContinuationChars": "never"}}, Fix: true},
+		{ID: "bsc-never-continue-never", Code: "while (a) {\n  continue;\n  (x)()\n}\n", Options: []any{"never", map[string]any{"beforeStatementContinuationChars": "never"}}, Fix: true},
+		{ID: "bsc-never-debugger-any", Code: "debugger;\n(function() {})()\n", Options: []any{"never", map[string]any{"beforeStatementContinuationChars": "any"}}},
+		{ID: "bsc-never-debugger-never", Code: "debugger;\n(function() {})()\n", Options: []any{"never", map[string]any{"beforeStatementContinuationChars": "never"}}, Fix: true},
+		{ID: "bsc-never-import-any", Code: "import a from 'a';\n(function() {})()\n", Options: []any{"never", map[string]any{"beforeStatementContinuationChars": "any"}}},
+		{ID: "bsc-never-import-never", Code: "import a from 'a';\n(function() {})()\n", Options: []any{"never", map[string]any{"beforeStatementContinuationChars": "never"}}, Fix: true},
+		{ID: "bsc-never-exportall-any", Code: "export * from 'a';\n(function() {})()\n", Options: []any{"never", map[string]any{"beforeStatementContinuationChars": "any"}}},
+		{ID: "bsc-never-exportall-never", Code: "export * from 'a';\n(function() {})()\n", Options: []any{"never", map[string]any{"beforeStatementContinuationChars": "never"}}, Fix: true},
+		{ID: "bsc-never-exportnamed-any", Code: "const a = 1;\nexport { a };\n(function() {})()\n", Options: []any{"never", map[string]any{"beforeStatementContinuationChars": "any"}}},
+		{ID: "bsc-never-exportnamed-never", Code: "const a = 1;\nexport { a };\n(function() {})()\n", Options: []any{"never", map[string]any{"beforeStatementContinuationChars": "never"}}, Fix: true},
+		{ID: "bsc-never-exportdecl-any", Code: "export const a = 1;\n(function() {})()\n", Options: []any{"never", map[string]any{"beforeStatementContinuationChars": "any"}}},
+		{ID: "bsc-never-exportdecl-never", Code: "export const a = 1;\n(function() {})()\n", Options: []any{"never", map[string]any{"beforeStatementContinuationChars": "never"}}, Fix: true},
+		{ID: "bsc-never-arrowblock-any", Code: "const f = () => {\n  a();\n};\n(function() {})()\n", Options: []any{"never", map[string]any{"beforeStatementContinuationChars": "any"}}},
+		{ID: "bsc-never-arrowblock-never", Code: "const f = () => {\n  a();\n};\n(function() {})()\n", Options: []any{"never", map[string]any{"beforeStatementContinuationChars": "never"}}, Fix: true},
+		{ID: "bsc-never-classfield", Code: "class A {\n  a = 1;\n  [b]() {}\n}\n", Options: []any{"never", map[string]any{"beforeStatementContinuationChars": "never"}}},
+
+		// ---- options that belong to the other mode are ignored ----
+		{ID: "never-with-always-options", Code: "if (foo) { bar(); }\n", Options: []any{"never", map[string]any{"omitLastInOneLineBlock": true}}, Fix: true},
+		{ID: "always-with-never-options", Code: "var a = 1\n", Options: []any{"always", map[string]any{"beforeStatementContinuationChars": "always"}}, Fix: true},
+		{ID: "never-with-classbody-option", Code: "class A { foo() {}; }\n", Options: []any{"never", map[string]any{"omitLastInOneLineClassBody": true}}, Fix: true},
+		{ID: "both-omit-options", Code: "if (a) { b(); }\nclass C { foo() {}; }\n", Options: []any{"always", map[string]any{"omitLastInOneLineBlock": true, "omitLastInOneLineClassBody": true}}, Fix: true},
 
 		// ---- ASI hazard tokens before ----
 		{ID: "hazard-bracket", Code: "var a = 1\n;[1, 2].forEach(f)\n", Options: []any{"never"}},

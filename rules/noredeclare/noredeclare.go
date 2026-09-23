@@ -60,9 +60,16 @@ type declaration struct {
 // a private stand-in for them: the linter's globals augmentation is the only
 // thing that marks a global `Writeable`, and a global it creates from scratch
 // is the only variable anywhere with neither identifiers nor definitions.
-// Known limitation (see the package test's report): a *readonly* global that
-// already has a syntax declaration in the global scope is indistinguishable
-// from an unconfigured one.
+//
+// Known limitation — a *readonly* global that already has a syntax declaration
+// in the global scope is indistinguishable from an unconfigured one. The
+// canonical case is `var top = 0;` with `env: { browser: true }` in script
+// mode: ESLint reports "'top' is already defined as a built-in global
+// variable." (1:5), this port reports nothing. linter.js marks every
+// configured global with eslintImplicitGlobalSetting (readonly *and*
+// writable); eslint-scope-go's Variable carries only the Writeable bool, and
+// globals.go sets it to `value == "writable"`, so the "was configured" bit is
+// lost. `noredeclare_test.go` records the failing case next to the corpus.
 func isConfiguredGlobal(variable *eslintscope.Variable) bool {
 	if variable.Scope == nil || variable.Scope.Type != eslintscope.ScopeGlobal {
 		return false

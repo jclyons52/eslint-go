@@ -1,6 +1,8 @@
 package noconsole
 
 import (
+	"strings"
+
 	eslint "github.com/jclyons52/eslint-go"
 	eslintscope "github.com/jclyons52/eslint-scope-go"
 )
@@ -12,11 +14,8 @@ const Name = "no-console"
 //
 // The original meta has `hasSuggestions: true`; when the reported
 // MemberExpression is the callee of an ExpressionStatement in a statement
-// list, the report carries a `removeConsole` suggestion. The core LintMessage
-// has no `suggestions` field (docs/porting-rules.md pitfall 6), so the
-// suggestion is not emitted — every other observable property (reported node,
-// message, loc, and which references are reported at all) is identical. See
-// the package test for the affected corpus entries.
+// list, the report carries a `removeConsole` suggestion (emitted by the JSON
+// formatter, never applied by --fix).
 var Rule = eslint.Rule{
 	ID: Name,
 	Meta: eslint.RuleMeta{
@@ -136,8 +135,67 @@ func isMemberAccessExceptAllowed(ref *eslintscope.Reference, allowed []string) b
 // report reports the MemberExpression the reference is the object of.
 func report(ctx *eslint.Context, ref *eslintscope.Reference) {
 	node := eslint.Parent(ref.Identifier)
-	ctx.Report(eslint.Report{
+	r := eslint.Report{
 		Node:      node,
 		MessageID: "unexpected",
-	})
+	}
+	if canProvideSuggestions(ctx.SourceCode, node) {
+		// `getStaticPropertyName` returns null for a computed non-static
+		// access, which JS interpolates as "null".
+		var propertyName any
+		if name, ok := eslint.GetStaticPropertyName(node); ok {
+			propertyName = name
+		}
+		statement := eslint.Parent(eslint.Parent(node))
+		r.Suggest = []eslint.Suggestion{{
+			MessageID: "removeConsole",
+			Data:      map[string]any{"propertyName": propertyName},
+			Fix: func(f *eslint.Fixer) *eslint.Fix {
+				return f.Remove(statement)
+			},
+		}}
+	}
+	ctx.Report(r)
+}
+
+// statementListParents is astUtils.STATEMENT_LIST_PARENTS.
+var statementListParents = map[string]bool{
+	"Program": true, "BlockStatement": true, "StaticBlock": true, "SwitchCase": true,
+}
+
+// maybeAsiHazard reports whether removing the statement would make the next
+// statement continue onto it (ASI hazard).
+func maybeAsiHazard(sc *eslint.SourceCode, node eslint.Node) bool {
+	tokenBefore := sc.GetTokenBefore(node)
+	tokenAfter := sc.GetTokenAfter(node)
+
+	if tokenAfter == nil {
+		return false
+	}
+	after := eslint.TokenValue(tokenAfter)
+	if after == "" || !strings.ContainsRune("-[(/+`", rune(after[0])) {
+		return false
+	}
+	if after == "++" || after == "--" {
+		return false
+	}
+	if tokenBefore == nil {
+		return false
+	}
+	before := eslint.TokenValue(tokenBefore)
+	return before != ":" && before != ";" && before != "{"
+}
+
+// canProvideSuggestions is the original's canProvideSuggestions: only a bare
+// `console.x()` statement in a statement list can be removed without changing
+// the parse.
+func canProvideSuggestions(sc *eslint.SourceCode, node eslint.Node) bool {
+	parent := eslint.Parent(node)
+	grandparent := eslint.Parent(parent)
+	statement := eslint.Parent(grandparent)
+	return eslint.NodeType(parent) == "CallExpression" &&
+		eslint.SameNode(eslint.GetNode(parent, "callee"), node) &&
+		eslint.NodeType(grandparent) == "ExpressionStatement" &&
+		statementListParents[eslint.NodeType(statement)] &&
+		!maybeAsiHazard(sc, grandparent)
 }

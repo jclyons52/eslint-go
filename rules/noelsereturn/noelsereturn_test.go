@@ -6,8 +6,16 @@ import (
 	"github.com/jclyons52/eslint-go/internal/ruletest"
 )
 
+// TestParity runs the rule against the real ESLint oracle.
+//
+// parserOptions is passed explicitly: this rule is scope-sensitive (the fix is
+// withheld when removing the `else` would collide with, or capture, a name),
+// and ESLint 8's default ecmaVersion for a config without parserOptions is 5 —
+// where eslint-scope creates no block scopes at all. The oracle driver injects
+// `ecmaVersion: 2022` as its default, so the Go side has to be configured with
+// the same version for the two scope graphs to be comparable.
 func TestParity(t *testing.T) {
-	ruletest.Compare(t, Rule, []ruletest.Case{
+	ruletest.CompareWith(t, Rule, []ruletest.Case{
 		// ---- default (allowElseIf: true) ----
 		{ID: "basic-block", Code: "function f() {\n  if (a) {\n    return 1;\n  } else {\n    return 2;\n  }\n}\n", Fix: true},
 		{ID: "basic-no-block", Code: "function f() {\n  if (a) return 1;\n  else return 2;\n}\n", Fix: true},
@@ -37,6 +45,8 @@ func TestParity(t *testing.T) {
 		{ID: "safe-inner-block", Code: "function f() {\n  if (a) {\n    return 1;\n  } else {\n    let x = 2;\n    return x;\n  }\n}\n", Fix: true},
 		{ID: "safe-nested-block", Code: "function f() {\n  {\n    if (a) {\n      return 1;\n    } else {\n      let y = 2;\n      return y;\n    }\n  }\n}\n", Fix: true},
 		{ID: "collision-nested-block-name", Code: "function f() {\n  let y = 0;\n  {\n    if (a) {\n      return 1;\n    } else {\n      let y = 2;\n    }\n  }\n}\n"},
+		{ID: "collision-class-decl", Code: "function f() {\n  if (a) {\n    return 1;\n  } else {\n    class C {}\n  }\n  class C {}\n}\n"},
+		{ID: "collision-function-decl", Code: "function f() {\n  if (a) {\n    return 1;\n  } else {\n    function g() {}\n  }\n  g();\n}\n"},
 
 		// ---- ASI hazards ----
 		{ID: "asi-else-starts-paren", Code: "function f() {\n  if (a) return 1\n  else (b)();\n}\n"},
@@ -71,5 +81,9 @@ func TestParity(t *testing.T) {
 		{ID: "nonascii-before", Code: "var s = \"h\u00e9llo\";\nfunction f() {\n  if (a) {\n    return 1;\n  } else {\n    return 2;\n  }\n}\n", Fix: true},
 		{ID: "nonascii-inside", Code: "function f() {\n  if (a) {\n    return \"\u4f60\u597d\";\n  } else {\n    return \"\U0001f600\";\n  }\n}\n", Fix: true},
 		{ID: "nonascii-let", Code: "function f() {\n  if (a) {\n    return 1;\n  } else {\n    let x = \"\u4f60\u597d\";\n  }\n  let x = 1;\n}\n"},
+	}, ruletest.Options{
+		ExtraConfig: map[string]any{
+			"parserOptions": map[string]any{"ecmaVersion": 2022, "sourceType": "module"},
+		},
 	})
 }

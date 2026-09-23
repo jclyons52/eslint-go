@@ -63,10 +63,129 @@ func check(ctx *eslint.Context, sc *eslint.SourceCode) func(eslint.Node) {
 		// identifiers; a shadowing declaration adds one.
 		variable := eslint.GetVariableByName(sc.Scope(node), "Array")
 		if variable != nil && len(variable.Identifiers) == 0 {
+			argsText := getArgumentsText(sc, node)
+			fixText := "[" + argsText + "]"
+			messageID := "useLiteral"
+
+			// A missing semicolon is inserted by ASI before `Array()`, but not
+			// before an array literal, so the replacement may need one.
+			if isStartOfExpressionStatement(node) && needsPrecedingSemicolon(sc, node) {
+				fixText = ";[" + argsText + "]"
+				messageID = "useLiteralAfterSemicolon"
+			}
+
 			ctx.Report(eslint.Report{
 				Node:      node,
 				MessageID: "preferLiteral",
+				Suggest: []eslint.Suggestion{{
+					MessageID: messageID,
+					Fix: func(f *eslint.Fixer) *eslint.Fix {
+						return f.ReplaceText(node, fixText)
+					},
+				}},
 			})
 		}
 	}
+}
+
+// getArgumentsText gets the text between the calling parentheses of a
+// CallExpression or NewExpression, or "" when there are none.
+func getArgumentsText(sc *eslint.SourceCode, node eslint.Node) string {
+	lastToken := sc.GetLastToken(node)
+	if !eslint.IsClosingParenToken(lastToken) {
+		return ""
+	}
+
+	firstToken := eslint.GetNode(node, "callee")
+	for {
+		firstToken = sc.GetTokenAfter(firstToken)
+		if firstToken == nil || eslint.SameNode(firstToken, lastToken) {
+			return ""
+		}
+		if eslint.IsOpeningParenToken(firstToken) {
+			break
+		}
+	}
+	return sc.Text()[eslint.End(firstToken):eslint.Start(lastToken)]
+}
+
+// isStartOfExpressionStatement is astUtils.isStartOfExpressionStatement: the
+// node is the leftmost node of an ExpressionStatement.
+func isStartOfExpressionStatement(node eslint.Node) bool {
+	start := eslint.Start(node)
+	ancestor := node
+	for {
+		ancestor = eslint.Parent(ancestor)
+		if ancestor == nil || eslint.Start(ancestor) != start {
+			return false
+		}
+		if eslint.NodeType(ancestor) == "ExpressionStatement" {
+			return true
+		}
+	}
+}
+
+// needsPrecedingSemicolon is astUtils.needsPrecedingSemicolon: whether an
+// opening `(`/`[`/backtick at this position needs a leading semicolon.
+var needsPrecedingSemicolonStatements = map[string]bool{
+	"DoWhileStatement": true, "ForInStatement": true, "ForOfStatement": true,
+	"ForStatement": true, "IfStatement": true, "WhileStatement": true, "WithStatement": true,
+}
+
+var needsPrecedingSemicolonPunctuators = map[string]bool{
+	":": true, ";": true, "{": true, "=>": true, "++": true, "--": true,
+}
+
+var needsPrecedingSemicolonDeclarations = map[string]bool{
+	"ExportAllDeclaration": true, "ExportNamedDeclaration": true, "ImportDeclaration": true,
+}
+
+var needsPrecedingSemicolonKeywordNodes = map[string]string{
+	"break": "BreakStatement", "continue": "ContinueStatement",
+	"debugger": "DebuggerStatement", "do": "DoWhileStatement", "else": "IfStatement",
+	"return": "ReturnStatement", "yield": "YieldExpression",
+}
+
+func needsPrecedingSemicolon(sc *eslint.SourceCode, node eslint.Node) bool {
+	prevToken := sc.GetTokenBefore(node)
+	if prevToken == nil {
+		return false
+	}
+	if eslint.NodeType(prevToken) == "Punctuator" &&
+		needsPrecedingSemicolonPunctuators[eslint.TokenValue(prevToken)] {
+		return false
+	}
+
+	prevNode := sc.GetNodeByRangeIndex(eslint.Start(prevToken))
+
+	if eslint.IsClosingParenToken(prevToken) {
+		return !needsPrecedingSemicolonStatements[eslint.NodeType(prevNode)]
+	}
+
+	if eslint.IsClosingBraceToken(prevToken) {
+		parent := eslint.Parent(prevNode)
+		switch eslint.NodeType(prevNode) {
+		case "BlockStatement":
+			return eslint.NodeType(parent) == "FunctionExpression"
+		case "ClassBody":
+			return eslint.NodeType(parent) == "ClassExpression"
+		case "ObjectExpression":
+			return true
+		}
+		return false
+	}
+
+	if eslint.NodeType(prevToken) == "Identifier" || eslint.NodeType(prevToken) == "Keyword" {
+		parent := eslint.Parent(prevNode)
+		if eslint.NodeType(parent) == "BreakStatement" || eslint.NodeType(parent) == "ContinueStatement" {
+			return false
+		}
+		return eslint.NodeType(prevNode) != needsPrecedingSemicolonKeywordNodes[eslint.TokenValue(prevToken)]
+	}
+
+	if eslint.NodeType(prevToken) == "String" {
+		return !needsPrecedingSemicolonDeclarations[eslint.NodeType(eslint.Parent(prevNode))]
+	}
+
+	return true
 }

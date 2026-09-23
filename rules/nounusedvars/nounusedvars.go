@@ -6,12 +6,30 @@
 // self-updates, ...) and reports the last write reference — or the first
 // declaration when the variable is never written.
 //
-// Known core gap: the JS rule's last branch reports a `/*global x*/` comment
-// directive that declares a global nobody uses. ESLint implements those inline
-// global comments in the Linter (addDeclaredGlobals + getDirectiveComments),
-// which this core does not port, so no variable ever carries
-// `eslintExplicitGlobalComments` and that branch is unreachable here. See the
-// package report for the exact oracle case.
+// Known core gaps (none in this rule), with the exact failing source:
+//
+//   - A class static block (`class A { static { var x = 1; } } new A();`) makes
+//     the core's scope analysis recurse until the stack overflows: the core's
+//     VisitorKeys omits "StaticBlock" and eslint-scope-go's "iteration"
+//     fallback then returns every key of the node map, including the `parent`
+//     link the traverser attached, so the walk cycles between a node and its
+//     parent. The crash happens before create() runs, for every rule.
+//   - `arguments`/`eval` cannot appear as an identifier *reference*: acorn-go's
+//     checkUnreserved applies its isReservedStrict list (which wrongly contains
+//     eval/arguments) to references, so `function f() { return arguments; }`
+//     is a fatal parse error here while real ESLint reports `'f' is defined but
+//     never used.`. The rule's implicit-arguments carve-out is still exercised
+//     by a function with an unused implicit `arguments` variable.
+//   - The JS rule's last branch reports a `/*global x*/` comment directive that
+//     declares a global nobody uses. ESLint implements those inline global
+//     comments in the Linter (addDeclaredGlobals + getDirectiveComments), which
+//     this core does not port, so no variable ever carries
+//     eslintExplicitGlobalComments and that branch is unreachable here.
+//   - The same missing directive handling means `/* exported x */` never sets
+//     variable.eslintUsed (ESLint does that for global-scope variables), so the
+//     eslintUsed skips are ported but cannot be exercised by a parity case.
+//
+// See nounusedvars_test.go for the oracle output of each.
 package nounusedvars
 
 import (

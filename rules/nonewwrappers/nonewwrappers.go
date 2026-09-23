@@ -39,10 +39,17 @@ var Rule = eslint.Rule{
 					return
 				}
 
-				// A predefined global has no declarations, so its variable
-				// carries no identifiers; a shadowing declaration adds one.
+				// The JS rule reports when the resolved variable has no
+				// identifiers, i.e. the name is the built-in wrapper object
+				// (a language global). The Go core does not seed the global
+				// scope with the ecmaVersion's language globals
+				// (eslint/lib/source-code's getGlobalsForEcmaVersion), so the
+				// built-in resolves to no variable at all: treat a missing
+				// variable as that built-in global. A shadowing declaration —
+				// the only other way to get a variable — still carries
+				// identifiers and is left alone.
 				variable := eslint.GetVariableByName(sc.Scope(node), name)
-				if variable != nil && len(variable.Identifiers) == 0 {
+				if variable == nil || len(variable.Identifiers) == 0 {
 					ctx.Report(eslint.Report{
 						Node:      node,
 						MessageID: "noConstructor",
