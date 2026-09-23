@@ -1,6 +1,9 @@
 package eslint
 
-import "sort"
+import (
+	"sort"
+	"strings"
+)
 
 // fixer.go — ESLint's rule-fixer (the object a rule uses to build a fix) and
 // source-code-fixer's applyFixes() (which applies non-overlapping fixes to the
@@ -124,7 +127,7 @@ func applyFixes(sourceText string, messages []*Message, shouldFix func(*Message)
 			remaining = append(remaining, m)
 			return
 		}
-		if (start < 0 && end >= 0) || (start == 0 && len(m.Fix.Text) > 0 && m.Fix.Text[:len(bom)] == bom) {
+		if (start < 0 && end >= 0) || (start == 0 && strings.HasPrefix(m.Fix.Text, bom)) {
 			output = ""
 		}
 		output += text[clampInt(lastPos, 0, len(text)):clampInt(start, 0, len(text))]

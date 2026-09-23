@@ -22,6 +22,8 @@ var VisitorKeys = map[string][]string{
 	"ConditionalExpression":    {"test", "consequent", "alternate"},
 	"ContinueStatement":        {"label"},
 	"DebuggerStatement":        {},
+	"ImportExpression":         {"source"},
+	"StaticBlock":              {"body"},
 	"DirectiveStatement":       {},
 	"DoWhileStatement":         {"body", "test"},
 	"EmptyStatement":           {},

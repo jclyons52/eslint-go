@@ -38,13 +38,12 @@ func globals(m map[string]any) map[string]any {
 
 // TestParity runs the corpus against the real ESLint oracle.
 //
-// Note on static blocks: `class C { static { … } }` is not exercised. The
-// core's VisitorKeys omits "StaticBlock", so eslint-scope-go's "iteration"
-// fallback walks the node's `parent` link and recurses until the stack
-// overflows — a pre-existing, documented core gap (see the package comment in
-// rules/nounusedvars/nounusedvars.go), unrelated to this rule.
+// Static blocks are covered: the core's VisitorKeys now carries "StaticBlock"
+// and eslint-scope-go's iteration fallback no longer walks the `parent` link,
+// so a `class C { static { … } }` no longer overflows scope analysis.
 func TestParity(t *testing.T) {
 	ruletest.Compare(t, Rule, []ruletest.Case{
+		{ID: "static-block-shadow", Code: "let a = 1; class C { static { let a = 2; a; } }"},
 		// Shadowed function scope.
 		{ID: "shadow-global-var", Code: "var a = 1; function f() { var a = 2; }", Config: cfg(modulePO, 2, nil)},
 		{ID: "shadow-global-let", Code: "let a = 1; function f() { let a = 2; }", Config: cfg(modulePO, 2, nil)},

@@ -34,12 +34,9 @@ func TestParity(t *testing.T) {
 		{ID: "nested-fn-read", Code: "let a = 1; function f() { return a; } f();"},
 		{ID: "assign-in-outer-scope-only", Code: "let a; function f() { a = 1; }"},
 		{ID: "catch-param-scope", Code: "try { throw 1; } catch (e) { let a = e; a; }"},
-		// NOTE: a class static block (`class C { static { let a = 1; a; } }`) is
-		// not covered here: the core's visitor-keys table has no "StaticBlock"
-		// entry, so scope analysis falls back to key iteration, walks the
-		// traverser-attached `parent` link and recurses until the stack
-		// overflows. Reproduces with any rule (`class C { static { debugger; } }`
-		// + no-debugger). See the package report.
+		// StaticBlock: the core gap that made any `static { … }` crash scope
+		// analysis is fixed (visitor keys + fallback), so this is covered again.
+		{ID: "static-block-let", Code: "class C { static { let a = 1; a; } }", Fix: true},
 		{ID: "class-field-initializer", Code: "class C { x = 1; m() { let a = 1; return a; } }", Fix: true},
 		{ID: "class-declaration-name", Code: "class C { m() { return C; } } let a = 1; a;", Fix: true},
 		{ID: "switch-case", Code: "switch (x) { case 1: { let a = 1; a; } }", Fix: true},

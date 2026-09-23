@@ -47,7 +47,7 @@ func script(extra map[string]any) map[string]any {
 }
 
 func TestParity(t *testing.T) {
-	ruletest.Compare(t, Rule, []ruletest.Case{
+	cases := []ruletest.Case{
 		// --- access via the global object -----------------------------------
 		{ID: "window-eval", Code: `window.eval("var a = 0");`,
 			Config: mod(map[string]any{"globals": globals("window")})},
@@ -185,38 +185,33 @@ func TestParity(t *testing.T) {
 		{ID: "clean-class-field", Code: `class A { foo = 1; }`, Config: mod(nil)},
 		{ID: "clean-evalish-names", Code: `var evaluate = 1; var evalish = 2; obj.evaluate();`, Config: mod(nil)},
 		{ID: "clean-comment", Code: "// eval(\"var a = 0\");\nvar a = 1;", Config: mod(nil)},
-	})
+	}
+
+	cases = append(cases, bareEvalCases()...)
+	ruletest.Compare(t, Rule, cases)
 }
 
-// Blocked cases — NOT a corpus reduction: these cannot be executed at all.
-//
-// 1. The bare identifier `eval`. The Go parser (acorn-go, hard-wired to
-//    sourceType module + strict) rejects it in expression position with
-//
-//        Parsing error: The keyword 'eval' is reserved
-//
-//    while real espree accepts it (acorn only forbids `eval` in *binding*
-//    positions — reservedWordsStrictBind — not as a reference; acorn-go's
-//    isReservedStrict wrongly folds the two together). Every case below
-//    therefore cannot reach the Go side of the harness, while the oracle
-//    reports them normally:
-//
-//        eval("var a = 0");                                     direct call
-//        var obj = { x: "foo" }, key = "x", value = eval("obj." + key);   doc example
-//        (0, eval)("var a = 0");                                indirect call
-//        var foo = eval; foo("var a = 0");                      indirect call
-//        function f(cb) { cb(); } f(eval);                      indirect, as argument
-//        function f() { return eval; }                          indirect, returned
-//        eval?.("var a = 0");                                   optional direct call
-//        eval("var a = 0");   with allowIndirect:true            (reports)
-//        (0, eval)("var a = 0"); with allowIndirect:true         (silent)
-//        eval?.("var a = 0"); with allowIndirect:true            (silent)
-//
-// 2. `class A { static { this.eval("var a = 0"); } }`. Any source containing a
-//    class static block makes the core's scope analysis (eslint-scope-go)
-//    recurse until the process dies with `fatal error: stack overflow` —
-//    "StaticBlock" is missing from eslint-scope-go/visitor_keys.go, so its
-//    children fall back to iterating every key of the node map, including the
-//    `parent` link the traverser installs. Reproduces with any rule
-//    (`class C { static { debugger; } }`), and is noted in rules/novar,
-//    rules/noalert, rules/preferconst, rules/noextrasemi and rules/semi.
+// Formerly blocked cases, now in the corpus: the bare `eval` identifier used to
+// be rejected by the Go parser ("The keyword 'eval' is reserved") because
+// acorn-go folded acorn's reservedWords (strict) and reservedWordsStrictBind
+// sets together and applied them to references. acorn only forbids `eval` and
+// `arguments` in *binding* positions. The static-block case was blocked by the
+// scope analyser's `parent`-link recursion (see rules/novar, rules/noalert).
+// Both are fixed, so these run and are compared against the oracle like any
+// other case.
+func bareEvalCases() []ruletest.Case {
+	allowIndirect := []any{map[string]any{"allowIndirect": true}}
+	return []ruletest.Case{
+		{ID: "bare-direct-call", Code: `eval("var a = 0");`, Config: mod(nil)},
+		{ID: "bare-doc-example", Code: "var obj = { x: \"foo\" }, key = \"x\", value = eval(\"obj.\" + key);", Config: mod(nil)},
+		{ID: "bare-indirect-sequence", Code: `(0, eval)("var a = 0");`, Config: mod(nil)},
+		{ID: "bare-indirect-alias", Code: `var foo = eval; foo("var a = 0");`, Config: mod(nil)},
+		{ID: "bare-indirect-argument", Code: `function f(cb) { cb(); } f(eval);`, Config: mod(nil)},
+		{ID: "bare-indirect-returned", Code: `function f() { return eval; }`, Config: mod(nil)},
+		{ID: "bare-optional-call", Code: `eval?.("var a = 0");`, Config: mod(nil)},
+		{ID: "bare-direct-allow-indirect", Code: `eval("var a = 0");`, Options: allowIndirect, Config: mod(nil)},
+		{ID: "bare-indirect-allow-indirect", Code: `(0, eval)("var a = 0");`, Options: allowIndirect, Config: mod(nil)},
+		{ID: "bare-optional-allow-indirect", Code: `eval?.("var a = 0");`, Options: allowIndirect, Config: mod(nil)},
+		{ID: "static-block-this-eval", Code: `class A { static { this.eval("var a = 0"); } }`, Config: script(globals("window"))},
+	}
+}

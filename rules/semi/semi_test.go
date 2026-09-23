@@ -56,14 +56,11 @@ func TestParity(t *testing.T) {
 		{ID: "oneline-block-omit-multiline", Code: "if (foo) {\n  bar();\n}\n", Options: []any{"always", map[string]any{"omitLastInOneLineBlock": true}}},
 		{ID: "oneline-block-omit-two-stmts", Code: "if (foo) { bar(); baz() }\n", Options: []any{"always", map[string]any{"omitLastInOneLineBlock": true}}, Fix: true},
 		{ID: "oneline-block-omit-nested", Code: "function f() { if (a) { b(); } }\n", Options: []any{"always", map[string]any{"omitLastInOneLineBlock": true}}, Fix: true},
-		// NOTE (core gap, not a port gap): the StaticBlock branch of
-		// isLastInOneLinerBlock cannot be exercised here. `class A { static { … } }`
-		// makes the core's scope analysis recurse forever: eslint-go's
-		// VisitorKeys omits "StaticBlock" (eslint-visitor-keys has
-		// StaticBlock: ["body"]) and eslint-scope-go's "iteration" fallback
-		// (visitor.go iterateKeys) returns every key, including the `parent`
-		// link the traverser attached, so the walk cycles between a node and its
-		// parent. Any rule crashes on this input, before create() runs.
+		// StaticBlock: the core now carries "StaticBlock" in its visitor keys and
+		// eslint-scope-go's fallback no longer walks the `parent` link, so the
+		// StaticBlock branch of isLastInOneLinerBlock is exercisable.
+		{ID: "static-block-oneliner", Code: "class A { static { b() } }\n", Fix: true},
+		{ID: "static-block-oneliner-omit", Code: "class A { static { b(); } }\n", Options: []any{"always", map[string]any{"omitLastInOneLineBlock": true}}, Fix: true},
 
 		// ---- one-line class bodies ----
 		{ID: "oneline-class-omit-true", Code: "class A { foo() {}; }\n", Options: []any{"always", map[string]any{"omitLastInOneLineClassBody": true}}, Fix: true},

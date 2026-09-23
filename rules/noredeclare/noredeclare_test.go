@@ -104,24 +104,14 @@ func TestParity(t *testing.T) {
 		{ID: "builtin-other-name", Code: "var bar = 1;", Config: cfg(scriptPO, 2, globals(map[string]any{"foo": "readonly"}))},
 		{ID: "builtin-empty-options-object", Code: "var foo = 1;", Config: cfg(scriptPO, 2, globals(map[string]any{"foo": "readonly"}), map[string]any{})},
 		{ID: "builtin-env-new-global", Code: "function f() { var Map = 1; }", Config: cfg(modulePO, 2, map[string]any{"env": map[string]any{"es6": true}})},
-		// NOT covered — core gap. `{ID: "builtin-env-readonly-decl", Code: "var top = 0;",
-		// Config: cfg(scriptPO, 2, map[string]any{"env": map[string]any{"browser": true}})}`
-		// is the canonical builtinGlobals case (ESLint's own test suite): the
-		// oracle reports `'top' is already defined as a built-in global
-		// variable.` at 1:5, the Go port reports nothing.
-		//
-		// Cause is in the core, not in this rule: linter.js marks EVERY
-		// configured global with `variable.eslintImplicitGlobalSetting`
-		// (readonly *and* writable) and `variable.writeable`, but
-		// eslint-scope-go's Variable only carries a `Writeable` bool and
-		// globals.go sets it to `value == "writable"`. A *readonly* global
-		// that already has a syntax declaration in the global scope therefore
-		// loses the "was configured" bit entirely, and
-		// isConfiguredGlobal() — which stands in for
-		// `eslintImplicitGlobalSetting === "readonly" || === "writable"` —
-		// cannot recover it. (The `globals` config key works because
-		// config.go normalises every accepted spelling, including "readonly",
-		// to true.)
+		// The canonical builtinGlobals case (ESLint's own test suite): `top` is an
+		// env-configured readonly global *and* has a syntax declaration, so the
+		// configured global counts as a first declaration.
+		{ID: "builtin-env-readonly-decl", Code: "var top = 0;", Config: cfg(scriptPO, 2, map[string]any{"env": map[string]any{"browser": true}})},
+		// An ecmaVersion builtin redeclared by syntax (the ES5 base set).
+		{ID: "builtin-base-redeclared", Code: "var Array = 1;", Config: cfg(scriptPO, 2, nil)},
+		// writable config global redeclared by syntax.
+		{ID: "builtin-writable-redeclared", Code: "var foo = 1;", Config: cfg(scriptPO, 2, globals(map[string]any{"foo": "writable"}))},
 
 		// Severities.
 		{ID: "warn-severity", Code: "var a = 1; var a = 2;", Config: cfg(modulePO, "warn", nil)},

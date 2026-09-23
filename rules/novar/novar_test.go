@@ -45,13 +45,11 @@ func TestParity(t *testing.T) {
 		{ID: "closure", Code: "function f() { var x = 1; return function () { return x; }; }", Fix: true},
 		{ID: "arrow-closure", Code: "const f = () => { var x = 1; return () => x; };", Fix: true},
 		{ID: "class-method", Code: "class C { m() { var x = 1; return x; } }", Fix: true},
-		// NOTE: a class static block (`class C { static { var x = 1; } }`) is not
-		// covered here: the core's visitor-keys table has no "StaticBlock" entry,
-		// so scope analysis falls back to key iteration, walks the
-		// traverser-attached `parent` link and recurses until the stack
-		// overflows. Reproduces with any rule (`class C { static { alert(1); } }`
-		// + no-alert). The class-field-initializer case below exercises a
-		// distinct class-body scope instead.
+		// Static blocks: the core's visitor-keys table now carries "StaticBlock":
+		// {"body"} (eslint-visitor-keys has it) and eslint-scope-go's iteration
+		// fallback no longer walks the traverser-attached `parent` link, so this
+		// shape no longer overflows the stack before create() runs.
+		{ID: "static-block", Code: "class C { static { var x = 1; } }", Fix: true},
 		{ID: "class-field-init", Code: "class C { x = (function () { var y = 1; return y; })(); }", Fix: true},
 		{ID: "used-from-outside", Code: "function f() { if (true) { var x = 1; } return x; }", Fix: true},
 		{ID: "shadow-inner-var", Code: "function f() { var x = 1; { var x = 2; } return x; }", Fix: true},

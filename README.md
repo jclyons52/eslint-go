@@ -40,20 +40,20 @@ rules over one traversal, and applies fixes with ESLint's own 10-pass loop.
 | `dot-notation` | `rules/dotnotation` | code | 63 |
 | `eol-last` | `rules/eollast` | whitespace | 39 |
 | `eqeqeq` | `rules/eqeqeq` | code | 87 |
-| `no-alert` | `rules/noalert` | — | 47 |
+| `no-alert` | `rules/noalert` | — | 48 |
 | `no-array-constructor` | `rules/noarrayconstructor` | — | 33 |
 | `no-caller` | `rules/nocaller` | — | 30 |
 | `no-cond-assign` | `rules/nocondassign` | — | 38 |
 | `no-console` | `rules/noconsole` | — | 33 |
 | `no-debugger` | `rules/nodebugger` | — | 16 |
-| `no-dupe-args` | `rules/nodupeargs` | — | 30 |
+| `no-dupe-args` | `rules/nodupeargs` | — | 33 |
 | `no-dupe-keys` | `rules/nodupekeys` | — | 17 |
 | `no-duplicate-case` | `rules/noduplicatecase` | — | 49 |
 | `no-else-return` | `rules/noelsereturn` | code | 52 |
 | `no-empty` | `rules/noempty` | — | 28 |
-| `no-eval` | `rules/noeval` | — | 91 |
+| `no-eval` | `rules/noeval` | — | 102 |
 | `no-extra-boolean-cast` | `rules/noextrabooleancast` | code | 58 |
-| `no-extra-semi` | `rules/noextrasemi` | code | 62 |
+| `no-extra-semi` | `rules/noextrasemi` | code | 63 |
 | `no-floating-decimal` | `rules/nofloatingdecimal` | code | 32 |
 | `no-func-assign` | `rules/nofuncassign` | — | 33 |
 | `no-lonely-if` | `rules/nolonelyif` | code | 40 |
@@ -62,27 +62,27 @@ rules over one traversal, and applies fixes with ESLint's own 10-pass loop.
 | `no-multiple-empty-lines` | `rules/nomultipleemptylines` | whitespace | 44 |
 | `no-new-object` | `rules/nonewobject` | — | 33 |
 | `no-new-wrappers` | `rules/nonewwrappers` | — | 31 |
-| `no-redeclare` | `rules/noredeclare` | — | 40 |
+| `no-redeclare` | `rules/noredeclare` | — | 43 |
 | `no-self-compare` | `rules/noselfcompare` | — | 63 |
-| `no-shadow` | `rules/noshadow` | — | 53 |
+| `no-shadow` | `rules/noshadow` | — | 54 |
 | `no-sparse-arrays` | `rules/nosparsearrays` | — | 22 |
 | `no-throw-literal` | `rules/nothrowliteral` | — | 44 |
 | `no-trailing-spaces` | `rules/notrailingspaces` | whitespace | 22 |
 | `no-undef` | `rules/noundef` | — | 24 |
 | `no-unsafe-negation` | `rules/nounsafenegation` | — | 52 |
-| `no-unused-vars` | `rules/nounusedvars` | — | 192 |
-| `no-var` | `rules/novar` | code | 68 |
+| `no-unused-vars` | `rules/nounusedvars` | — | 195 |
+| `no-var` | `rules/novar` | code | 69 |
 | `no-whitespace-before-property` | `rules/nowhitespacebeforeproperty` | whitespace | 45 |
-| `prefer-const` | `rules/preferconst` | code | 54 |
+| `prefer-const` | `rules/preferconst` | code | 55 |
 | `quotes` | `rules/quotes` | code | 77 |
-| `semi` | `rules/semi` | code | 130 |
+| `semi` | `rules/semi` | code | 132 |
 | `semi-spacing` | `rules/semispacing` | whitespace | 69 |
 | `space-infix-ops` | `rules/spaceinfixops` | whitespace | 55 |
 | `use-isnan` | `rules/useisnan` | — | 57 |
 | `valid-typeof` | `rules/validtypeof` | — | 78 |
 | `yoda` | `rules/yoda` | code | 76 |
 
-Total oracle cases across the rule suites: 2432.
+Total oracle cases across the rule suites: 2459.
 <!-- rule-table:end -->
 
 Rules are added as independent packages under `rules/<name>/`; each one ships a

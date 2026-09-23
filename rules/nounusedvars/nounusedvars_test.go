@@ -254,9 +254,7 @@ func TestParity(t *testing.T) {
 		{ID: "class-static-field", Code: "class A { static x = 1; } new A();"},
 		{ID: "class-field-uses-outer", Code: "const a = 1; class A { x = a; } new A();"},
 		{ID: "class-method-inner-var", Code: "class A { m() { var y = 1; } } new A();"},
-		// NOTE (core gap 1): {ID: "class-static-block", Code: "class A { static { var x = 1; } } new A();"}
-		// cannot run — the core's scope analysis stack-overflows on any source
-		// containing `static { … }`. See the package comment above.
+		{ID: "class-static-block", Code: "class A { static { var x = 1; } } new A();"},
 		{ID: "class-method-this", Code: "class A { m() {} } new A();"},
 
 		// ---- the vars option -----------------------------------------------
@@ -278,9 +276,8 @@ func TestParity(t *testing.T) {
 		{ID: "both-patterns-message", Code: "var foo = 1;", Options: opts(map[string]any{"varsIgnorePattern": "^_", "argsIgnorePattern": "^x"})},
 
 		// ---- arguments -----------------------------------------------------
-		// NOTE (core gap 2): {ID: "implicit-arguments", Code: "function f() { return arguments; }"}
-		// and {ID: "arguments-not-in-arrow", Code: "var f = () => arguments; f();"} are
-		// unparseable here — acorn-go rejects `arguments` as a reference in strict mode.
+		{ID: "implicit-arguments", Code: "function f() { return arguments; }"},
+		{ID: "arguments-not-in-arrow", Code: "var f = () => arguments; f();"},
 		{ID: "implicit-arguments-unused", Code: "function f() { }"},
 		{ID: "fn-decl-inner-var-used", Code: "function f() { var a = 1; return a; }"},
 

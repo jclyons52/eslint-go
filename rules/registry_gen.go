@@ -62,20 +62,20 @@ var registry = []eslint.Rule{
 	dotnotation.Rule,                // dot-notation: 63 oracle cases
 	eollast.Rule,                    // eol-last: 39 oracle cases
 	eqeqeq.Rule,                     // eqeqeq: 87 oracle cases
-	noalert.Rule,                    // no-alert: 47 oracle cases
+	noalert.Rule,                    // no-alert: 48 oracle cases
 	noarrayconstructor.Rule,         // no-array-constructor: 33 oracle cases
 	nocaller.Rule,                   // no-caller: 30 oracle cases
 	nocondassign.Rule,               // no-cond-assign: 38 oracle cases
 	noconsole.Rule,                  // no-console: 33 oracle cases
 	nodebugger.Rule,                 // no-debugger: 16 oracle cases
-	nodupeargs.Rule,                 // no-dupe-args: 30 oracle cases
+	nodupeargs.Rule,                 // no-dupe-args: 33 oracle cases
 	nodupekeys.Rule,                 // no-dupe-keys: 17 oracle cases
 	noduplicatecase.Rule,            // no-duplicate-case: 49 oracle cases
 	noelsereturn.Rule,               // no-else-return: 52 oracle cases
 	noempty.Rule,                    // no-empty: 28 oracle cases
-	noeval.Rule,                     // no-eval: 91 oracle cases
+	noeval.Rule,                     // no-eval: 102 oracle cases
 	noextrabooleancast.Rule,         // no-extra-boolean-cast: 58 oracle cases
-	noextrasemi.Rule,                // no-extra-semi: 62 oracle cases
+	noextrasemi.Rule,                // no-extra-semi: 63 oracle cases
 	nofloatingdecimal.Rule,          // no-floating-decimal: 32 oracle cases
 	nofuncassign.Rule,               // no-func-assign: 33 oracle cases
 	nolonelyif.Rule,                 // no-lonely-if: 40 oracle cases
@@ -84,20 +84,20 @@ var registry = []eslint.Rule{
 	nomultispaces.Rule,              // no-multi-spaces: 42 oracle cases
 	nonewobject.Rule,                // no-new-object: 33 oracle cases
 	nonewwrappers.Rule,              // no-new-wrappers: 31 oracle cases
-	noredeclare.Rule,                // no-redeclare: 40 oracle cases
+	noredeclare.Rule,                // no-redeclare: 43 oracle cases
 	noselfcompare.Rule,              // no-self-compare: 63 oracle cases
-	noshadow.Rule,                   // no-shadow: 53 oracle cases
+	noshadow.Rule,                   // no-shadow: 54 oracle cases
 	nosparsearrays.Rule,             // no-sparse-arrays: 22 oracle cases
 	nothrowliteral.Rule,             // no-throw-literal: 44 oracle cases
 	notrailingspaces.Rule,           // no-trailing-spaces: 22 oracle cases
 	noundef.Rule,                    // no-undef: 24 oracle cases
 	nounsafenegation.Rule,           // no-unsafe-negation: 52 oracle cases
-	nounusedvars.Rule,               // no-unused-vars: 192 oracle cases
-	novar.Rule,                      // no-var: 68 oracle cases
+	nounusedvars.Rule,               // no-unused-vars: 195 oracle cases
+	novar.Rule,                      // no-var: 69 oracle cases
 	nowhitespacebeforeproperty.Rule, // no-whitespace-before-property: 45 oracle cases
-	preferconst.Rule,                // prefer-const: 54 oracle cases
+	preferconst.Rule,                // prefer-const: 55 oracle cases
 	quotes.Rule,                     // quotes: 77 oracle cases
-	semi.Rule,                       // semi: 130 oracle cases
+	semi.Rule,                       // semi: 132 oracle cases
 	semispacing.Rule,                // semi-spacing: 69 oracle cases
 	spaceinfixops.Rule,              // space-infix-ops: 55 oracle cases
 	useisnan.Rule,                   // use-isnan: 57 oracle cases

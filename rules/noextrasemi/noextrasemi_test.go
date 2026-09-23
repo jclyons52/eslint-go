@@ -94,13 +94,6 @@ func TestParity(t *testing.T) {
 		{ID: "nonascii-crlf", Code: "var s = \"\u4f60\u597d\";;\r\nvar t = 1;;\r\n", Fix: true},
 		{ID: "nonascii-directive", Code: ";\n\"\u4f60\u597d\";\n"},
 
-		// NOTE (core gap, not a port gap): the StaticBlock handler cannot be
-		// exercised here. Any source containing `static { … }` makes the core's
-		// scope analysis recurse forever — eslint-go's VisitorKeys omits
-		// "StaticBlock" (eslint-visitor-keys has StaticBlock: ["body"]) and
-		// eslint-scope-go's "iteration" fallback (visitor.go iterateKeys)
-		// returns every key including the `parent` link the traverser attached,
-		// so the walk cycles between a node and its parent. It crashes before
-		// create() runs, for every rule.
+		{ID: "static-block-semi", Code: "class A { static { ; } }\n", Fix: true},
 	})
 }

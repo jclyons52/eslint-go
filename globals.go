@@ -67,6 +67,10 @@ func applyConfiguredGlobals(sm *eslintscope.ScopeManager, cfg *Config) {
 			globalScope.Set[name] = variable
 		}
 		variable.Writeable = value == "writable"
+		// ESLint marks every configured global with the setting, not just the
+		// writable ones: rules such as no-redeclare use it to tell a configured
+		// global apart from an undeclared name.
+		variable.ESLintImplicitGlobalSetting = value
 	}
 
 	// Re-resolve references that the configuration just defined.

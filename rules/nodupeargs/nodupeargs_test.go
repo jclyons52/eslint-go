@@ -59,13 +59,12 @@ func TestParity(t *testing.T) {
 		{ID: "dupe-warn", Code: "function foo(a, a) {}", SourceType: "script", Config: map[string]any{"rules": map[string]any{Name: "warn"}}},
 		{ID: "dupe-separate-functions", Code: "function f(a, a) {}\nfunction g(b, b) {}\n", SourceType: "script"},
 
-		// NOT COVERED — acorn-go parser divergence: espree-go always parses as
-		// a module and never runs acorn's duplicate-parameter checks, so these
-		// (which real espree rejects with "Argument name clash" in both script
-		// and module mode) are a rule report on the Go side and a parse error
-		// on ESLint's:
-		//   function foo(a, a = 1) {}      (non-simple parameter list)
-		//   function foo({ a }, { a }) {}
-		//   var f = (a, a) => a;
+		// Duplicate parameters in a non-simple list (or in module code) are an
+		// acorn early error, not a rule report: real espree rejects them with
+		// "Argument name clash" and so does acorn-go (checkParams → checkClashes
+		// in checkLValSimple), so these three are compared as parse errors.
+		{ID: "dupe-nonsimple-default", Code: "function foo(a, a = 1) {}"},
+		{ID: "dupe-nonsimple-pattern", Code: "function foo({ a }, { a }) {}"},
+		{ID: "dupe-arrow", Code: "var f = (a, a) => a;"},
 	})
 }

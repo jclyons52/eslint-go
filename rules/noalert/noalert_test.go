@@ -73,16 +73,7 @@ func TestParity(t *testing.T) {
 		{ID: "arrow-body", Code: `const f = () => { confirm("x"); };`},
 		{ID: "class-method", Code: `class C { m() { prompt("x"); } }`},
 		{ID: "class-static-method", Code: `class C { static m() { alert("x"); } }`},
-		// NOTE (core gap, not a port gap): a class static block
-		// (`class C { static { alert("x"); } }`) cannot be exercised. Any source
-		// containing `static { … }` makes the core's scope analysis recurse until
-		// the stack overflows — eslint-go's VisitorKeys omits "StaticBlock"
-		// (eslint-visitor-keys has StaticBlock: ["body"]) and eslint-scope-go's
-		// "iteration" fallback (visitor.go iterateKeys) returns every key,
-		// including the `parent` link the traverser attached, so the walk cycles
-		// between a node and its parent. It crashes before create() runs, for
-		// every rule — the same gap rules/semi, rules/preferconst and
-		// rules/noextrasemi document.
+		{ID: "class-static-block", Code: `class C { static { alert("x"); } }`},
 		{ID: "iife", Code: `(function () { alert("x"); })();`},
 		{ID: "deeply-nested", Code: `function f() { return function () { return function () { alert("x"); }; }; }`},
 

@@ -60,15 +60,11 @@ func TestParity(t *testing.T) {
 		{ID: "nonascii-before", Code: "var s = \"\u4f60\u597d\";\nvar n = .5;\n", Fix: true},
 		{ID: "nonascii-trailing", Code: "var s = \"\U0001f600\";\nvar n = 5.;\n", Fix: true},
 
-		// Verify-only: `.5` at offset 0 is the one shape whose fix starts at
-		// offset 0 with a replacement text shorter than the 3-byte UTF-8 BOM
-		// ("0"), which panics in the core's applyFixes (fixer.go:127,
-		// `start == 0 && len(fix.Text) > 0 && fix.Text[:len(bom)] == bom`;
-		// ESLint uses String.prototype.startsWith there). The fix half cannot
-		// run, and — unlike a short *source* — padding the file does not help,
-		// because the panicking expression slices fix.Text, not the source. So
-		// the offset-0 leading fix is compared message-only here; every other
-		// leading form (offset > 0) is covered with Fix: true above.
-		{ID: "statement", Code: ".5;\n"},
+		// `.5` at offset 0: the fix inserts "0" at range [0,0], i.e. a replacement
+		// text shorter than the 3-byte UTF-8 BOM — the shape that used to panic in
+		// the core's applyFixes (it sliced fix.Text by len(bom); ESLint uses
+		// String.prototype.startsWith). Fixed, so the offset-0 leading form is
+		// compared with its fix like every other leading form.
+		{ID: "statement", Code: ".5;\n", Fix: true},
 	})
 }
