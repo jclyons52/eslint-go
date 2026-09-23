@@ -126,7 +126,16 @@ type LintResult struct {
 	WarningCount        int
 	FixableErrorCount   int
 	FixableWarningCount int
-	UsedDeprecatedRules []string
+	// UsedDeprecatedRules lists the deprecated rules this file's config
+	// enabled (eslint reports them per result).
+	UsedDeprecatedRules []DeprecatedRuleInfo
+}
+
+// DeprecatedRuleInfo is one deprecated rule used by a configuration
+// (eslint's DeprecatedRuleInfo).
+type DeprecatedRuleInfo struct {
+	RuleID     string
+	ReplacedBy []string
 }
 
 // NewLintResult builds a result and computes its counts, mirroring ESLint's
@@ -149,6 +158,18 @@ func NewLintResult(filePath string, messages []Message) *LintResult {
 		}
 	}
 	return r
+}
+
+// FatalErrorCount returns the number of fatal (parse) errors, which ESLint's
+// result objects report separately from errorCount.
+func (r *LintResult) FatalErrorCount() int {
+	n := 0
+	for _, m := range r.Messages {
+		if m.Fatal {
+			n++
+		}
+	}
+	return n
 }
 
 // Lint verifies source text and returns a fully populated LintResult.
@@ -174,6 +195,20 @@ type listenerEntry struct {
 	typ  string
 	exit bool
 	fn   func(Node)
+}
+
+// missingRuleProblem builds the problem ESLint reports for a configured rule it
+// has no definition for (linter.js createLintingProblem with DEFAULT_ERROR_LOC).
+func missingRuleProblem(ruleID string) *Message {
+	return &Message{
+		RuleID:    ruleID,
+		Severity:  2,
+		Message:   MissingRuleMessage(ruleID),
+		Line:      1,
+		Column:    1,
+		EndLine:   1,
+		EndColumn: 2,
+	}
 }
 
 // verify is the core: parse, analyze scopes, dispatch rules, sort problems.
@@ -210,6 +245,12 @@ func (l *Linter) verify(text string, cfg *Config, filename string) ([]Message, *
 
 	var runs []run
 	for _, er := range cfg.EnabledRules(l.rules) {
+		if !er.Known {
+			// eslint's runRules: an unknown rule contributes a problem rather
+			// than being ignored (severity 2, at 1:1..1:2, nodeType null).
+			problems = append(problems, missingRuleProblem(er.ID))
+			continue
+		}
 		rule := l.rules[er.ID]
 		ctx := &Context{
 			ID:               er.ID,

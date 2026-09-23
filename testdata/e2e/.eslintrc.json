@@ -1,0 +1,17 @@
+{
+  "root": true,
+  "parserOptions": {
+    "ecmaVersion": 2022,
+    "sourceType": "module"
+  },
+  "globals": {
+    "console": "readonly",
+    "process": "readonly"
+  },
+  "rules": {
+    "no-debugger": "error",
+    "no-dupe-keys": "error",
+    "no-undef": "error",
+    "no-trailing-spaces": "warn"
+  }
+}

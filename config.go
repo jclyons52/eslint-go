@@ -102,12 +102,18 @@ type EnabledRule struct {
 	ID       string
 	Severity int
 	Options  []any
+	// Known is false when the rule is configured but not registered with the
+	// linter — ESLint reports "Definition for rule 'x' was not found." for
+	// those, and so do we (see Linter.verify).
+	Known bool
 }
 
 // EnabledRules resolves the configured rules against a rule registry, keeping
 // ESLint's configuration order: rules listed in RuleOrder first (in that
 // order), then any remaining rules in sorted order (a config built in Go
-// without an explicit order still needs deterministic behaviour).
+// without an explicit order still needs deterministic behaviour). Rules that
+// are configured but not in the registry are returned with Known=false rather
+// than dropped, so the linter can report them the way ESLint does.
 func (c *Config) EnabledRules(registry map[string]Rule) []EnabledRule {
 	var out []EnabledRule
 	seen := map[string]bool{}
@@ -120,14 +126,12 @@ func (c *Config) EnabledRules(registry map[string]Rule) []EnabledRule {
 		if !ok {
 			return
 		}
-		if _, known := registry[id]; !known {
-			return
-		}
+		_, known := registry[id]
 		sev, opts, enabled := ParseRuleConfig(v)
 		if !enabled || sev == 0 {
 			return
 		}
-		out = append(out, EnabledRule{ID: id, Severity: sev, Options: opts})
+		out = append(out, EnabledRule{ID: id, Severity: sev, Options: opts, Known: known})
 	}
 	for _, id := range c.RuleOrder {
 		add(id)
