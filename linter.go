@@ -1,9 +1,16 @@
 package eslint
 
 import (
+	"regexp"
 	"sort"
 	"strings"
 )
+
+// shebangPattern is upstream's /^#!([^\r\n]+)/u from lib/shared/ast-utils.js.
+// The capture group excludes only CR/LF (not U+2028/U+2029), and `^` without the
+// m flag anchors to the start of the file, so only a real shebang — after BOM
+// stripping — is rewritten.
+var shebangPattern = regexp.MustCompile("^#!([^\r\n]+)")
 
 // linter.go — Linter.verify / verifyAndFix: the file-level pipeline.
 // Parse (espree-go) → SourceCode (+ eslint-scope) → run enabled rules over one
@@ -222,7 +229,19 @@ func (l *Linter) verify(text string, cfg *Config, filename string) ([]Message, *
 		text = strings.TrimPrefix(text, "\uFEFF")
 	}
 
-	pr, err := Parse(text, cfg.SourceType())
+	// Upstream rewrites a leading shebang into a line comment before parsing:
+	//
+	//   stripUnicodeBOM(text).replace(shebangPattern, (m, captured) => `//${captured}`)
+	//
+	// The rewrite is length-preserving, so the `#!` line never reaches the parser
+	// (which would reject it as an unexpected character) and every offset, line and
+	// column stays where it was. It also makes the prologue a real prologue, so
+	// `#!/usr/bin/env node` + `"use strict"` is strict code — as ESLint reports it.
+	// The original text is still what SourceCode is built from.
+	textToParse := shebangPattern.ReplaceAllString(text, "//$1")
+
+	globalReturn := cfg.GlobalReturn()
+	pr, err := Parse(textToParse, cfg.SourceType(), globalReturn)
 	if err != nil {
 		pe := normalizeParseError(err)
 		return []Message{*fatalMessage(err, "Parsing error: "+pe.Message,
@@ -231,7 +250,7 @@ func (l *Linter) verify(text string, cfg *Config, filename string) ([]Message, *
 
 	sc := NewSourceCode(text, pr.AST, pr.Tokens, pr.Comments, hasBOM)
 	events := collectEvents(pr.AST)
-	sm := analyzeScope(pr.AST, cfg.SourceType(), cfg.ECMAVersion())
+	sm := analyzeScope(pr.AST, cfg.SourceType(), cfg.ECMAVersion(), globalReturn)
 	applyConfiguredGlobals(sm, cfg)
 	sc.SetScopeManager(sm)
 

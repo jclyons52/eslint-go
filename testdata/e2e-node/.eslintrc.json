@@ -1,0 +1,20 @@
+{
+  "root": true,
+  "env": {
+    "node": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 2022,
+    "sourceType": "script"
+  },
+  "rules": {
+    "no-redeclare": "error",
+    "no-undef": "error",
+    "no-unused-vars": "error",
+    "no-shadow": "error",
+    "no-var": "error",
+    "semi": "error",
+    "quotes": ["error", "double"],
+    "no-console": "error"
+  }
+}

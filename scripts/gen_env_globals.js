@@ -16,6 +16,7 @@ const globalsPkg = require(path.join(process.cwd(), 'oracle/node_modules/globals
 const environments = eslintrc.Legacy.environments;
 const out = {};
 const envNames = [];
+const envOptions = {};
 
 for (const [envId, env] of environments.entries()) {
     if (!env || !env.globals) continue;
@@ -26,6 +27,14 @@ for (const [envId, env] of environments.entries()) {
     }
     out[envId] = names;
     envNames.push(envId);
+
+    // An environment can also carry parserOptions. This matters: `env: node`
+    // contributes ecmaFeatures.globalReturn, which makes espree allow top-level
+    // `return` and makes eslint-scope nest a function scope over the Program —
+    // so top-level declarations do not collide with node's globals.
+    if (env.parserOptions && Object.keys(env.parserOptions).length > 0) {
+        envOptions[envId] = env.parserOptions;
+    }
 }
 
 envNames.sort();
@@ -33,6 +42,7 @@ const ordered = {};
 for (const id of envNames) ordered[id] = out[id];
 
 const json = JSON.stringify(ordered);
+const optionsJSON = JSON.stringify(envOptions);
 
 const file = `package eslint
 
@@ -54,21 +64,42 @@ import (
 // envGlobalsJSON is the env → {global name → access} table as JSON.
 const envGlobalsJSON = \`${json}\`
 
+// envParserOptionsJSON is the env → parserOptions table as JSON. Only
+// environments that carry parserOptions appear (\`node\` is the one that matters:
+// ecmaFeatures.globalReturn).
+const envParserOptionsJSON = \`${optionsJSON}\`
+
 var (
 	envGlobalsOnce sync.Once
 	envGlobalsData map[string]map[string]string
+	envOptionsData map[string]map[string]any
 )
 
-// EnvGlobals returns the globals an environment contributes (name → access),
-// or nil for an unknown environment.
-func EnvGlobals(env string) map[string]string {
+func loadEnvTables() {
 	envGlobalsOnce.Do(func() {
 		envGlobalsData = map[string]map[string]string{}
 		if err := json.Unmarshal([]byte(envGlobalsJSON), &envGlobalsData); err != nil {
 			panic("eslint: invalid embedded env globals: " + err.Error())
 		}
+		envOptionsData = map[string]map[string]any{}
+		if err := json.Unmarshal([]byte(envParserOptionsJSON), &envOptionsData); err != nil {
+			panic("eslint: invalid embedded env parserOptions: " + err.Error())
+		}
 	})
+}
+
+// EnvGlobals returns the globals an environment contributes (name → access),
+// or nil for an unknown environment.
+func EnvGlobals(env string) map[string]string {
+	loadEnvTables()
 	return envGlobalsData[env]
+}
+
+// EnvParserOptions returns the parserOptions an environment contributes, or nil
+// when the environment contributes none.
+func EnvParserOptions(env string) map[string]any {
+	loadEnvTables()
+	return envOptionsData[env]
 }
 
 // EnvNames returns the supported environment ids (sorted).

@@ -26,17 +26,23 @@ type ParseResult struct {
 // "commonjs"). parserOptions.ecmaVersion is accepted but not enforced — the
 // port parses at the newest syntax level, so a configured older version's
 // restrictions are not applied. See README "Known divergences".
-func Parse(text, sourceType string) (*ParseResult, error) {
+func Parse(text, sourceType string, globalReturn bool) (*ParseResult, error) {
 	if sourceType == "" {
 		sourceType = "script"
 	}
+	features := map[string]any{}
+	if globalReturn {
+		// espree maps this onto acorn's allowReturnOutsideFunction.
+		features["globalReturn"] = true
+	}
 	v, err := espree.Parse(text, &espree.Options{
-		SourceType:  sourceType,
-		EcmaVersion: "latest",
-		Loc:         true,
-		Range:       true,
-		Comment:     true,
-		Tokens:      true,
+		SourceType:   sourceType,
+		EcmaVersion:  "latest",
+		Loc:          true,
+		Range:        true,
+		Comment:      true,
+		Tokens:       true,
+		EcmaFeatures: features,
 	})
 	if err != nil {
 		return nil, err

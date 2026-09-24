@@ -12,6 +12,7 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 FIXTURE="${FIXTURE:-$ROOT/testdata/e2e}"
 SCRIPT_FIXTURE="$ROOT/testdata/e2e-script"
+NODE_FIXTURE="$ROOT/testdata/e2e-node"
 ORACLE="$ROOT/oracle"
 REAL_ESLINT="$ORACLE/node_modules/eslint/bin/eslint.js"
 
@@ -42,10 +43,12 @@ BIN="$WORK/eslint-go"
 # effective config grows automatically.
 EFFECTIVE_CONFIG="$WORK/.eslintrc.effective.json"
 SCRIPT_CONFIG="$WORK/.eslintrc.script.json"
+NODE_CONFIG="$WORK/.eslintrc.node.json"
 RULE_LIST_FILE="$WORK/rules.txt"
 "$BIN" --list-rules | awk 'NR>1 {print $1}' > "$RULE_LIST_FILE"
 python3 "$ROOT/scripts/filter_config.py" "$FIXTURE/.eslintrc.json" "$EFFECTIVE_CONFIG" "$RULE_LIST_FILE"
 python3 "$ROOT/scripts/filter_config.py" "$SCRIPT_FIXTURE/.eslintrc.json" "$SCRIPT_CONFIG" "$RULE_LIST_FILE"
+python3 "$ROOT/scripts/filter_config.py" "$NODE_FIXTURE/.eslintrc.json" "$NODE_CONFIG" "$RULE_LIST_FILE"
 
 pass=0
 fail=0
@@ -138,6 +141,13 @@ run_all() {
     FIXTURE="$SCRIPT_FIXTURE" EFFECTIVE_CONFIG="$SCRIPT_CONFIG" compare script-stylish src
     FIXTURE="$SCRIPT_FIXTURE" EFFECTIVE_CONFIG="$SCRIPT_CONFIG" compare script-json -f json src
     FIXTURE="$SCRIPT_FIXTURE" EFFECTIVE_CONFIG="$SCRIPT_CONFIG" compare script-fix --fix src
+
+    # env: node — parserOptions.ecmaFeatures.globalReturn, which allows a
+    # top-level `return` and makes eslint-scope nest a function scope over the
+    # Program (top-level declarations then do not collide with node's globals).
+    FIXTURE="$NODE_FIXTURE" EFFECTIVE_CONFIG="$NODE_CONFIG" compare node-stylish src
+    FIXTURE="$NODE_FIXTURE" EFFECTIVE_CONFIG="$NODE_CONFIG" compare node-json -f json src
+    FIXTURE="$NODE_FIXTURE" EFFECTIVE_CONFIG="$NODE_CONFIG" compare node-fix --fix src
 }
 
 if [ $# -gt 0 ]; then
@@ -154,6 +164,9 @@ if [ $# -gt 0 ]; then
             script-stylish) FIXTURE="$SCRIPT_FIXTURE" EFFECTIVE_CONFIG="$SCRIPT_CONFIG" compare script-stylish src ;;
             script-json) FIXTURE="$SCRIPT_FIXTURE" EFFECTIVE_CONFIG="$SCRIPT_CONFIG" compare script-json -f json src ;;
             script-fix) FIXTURE="$SCRIPT_FIXTURE" EFFECTIVE_CONFIG="$SCRIPT_CONFIG" compare script-fix --fix src ;;
+            node-stylish) FIXTURE="$NODE_FIXTURE" EFFECTIVE_CONFIG="$NODE_CONFIG" compare node-stylish src ;;
+            node-json) FIXTURE="$NODE_FIXTURE" EFFECTIVE_CONFIG="$NODE_CONFIG" compare node-json -f json src ;;
+            node-fix) FIXTURE="$NODE_FIXTURE" EFFECTIVE_CONFIG="$NODE_CONFIG" compare node-fix --fix src ;;
             *) echo "unknown scenario: $s"; exit 2 ;;
         esac
     done

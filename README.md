@@ -171,6 +171,10 @@ that references unported rules is visibly incomplete instead of silently quieter
 These are deliberate and documented rather than hidden. Everything else aims at
 byte equality.
 
+The last section quantifies them against real code: linting 772 shipped npm
+JavaScript files with the 46 implemented rules, 729 (94.4%) are byte-identical,
+and every remaining difference falls into the buckets below.
+
 - **Parser early errors are not implemented.** acorn's early-error checks for
   duplicate declarations are missing, so a file ESLint rejects — `let x; let x;`,
   `class A {} class A {}`, `function f() {} function f() {}` (module code),
@@ -183,13 +187,30 @@ byte equality.
   and fail there.
 - **Inline directives are not implemented.** `/* eslint-disable */`,
   `/* eslint rule: "error" */`, `/* global x */` and `/* exported x */` comments
-  do not affect a run, so files that rely on them differ from ESLint.
+  do not affect a run, so files that rely on them differ from ESLint. This is the
+  largest real-world bucket: 28 of the 43 differing files above.
+- **Configuration cascading is not implemented.** ESLint walks up from each
+  linted file and merges every `.eslintrc*` it finds; this CLI reads the config
+  you point it at (`-c`) plus its `extends`. A repository that splits config per
+  directory (e.g. `test/.eslintrc.json`) therefore lints here under the root
+  config only. 14 of the 43 differing files above are exactly that: files inside
+  packages that ship their own `.eslintrc.yml`.
+- **One `no-shadow` column edge case on a minified bundle.** On
+  `js-yaml/dist/js-yaml.min.js` the same 4,982 problems are reported, but five of
+  the "already declared in the upper scope on line 1 column N" references point
+  one column later than ESLint's. Not reproduced by a smaller case; left
+  documented rather than papered over.
 - **Code-path analysis rules are out of scope** (`no-unreachable`,
   `consistent-return`, `no-fallthrough`, `getter-return`, `constructor-super`).
 - **`parserOptions.ecmaVersion` is not enforced.** The port parses at the newest
   syntax level, so a configured older version's restrictions (e.g. `ecmaVersion:
   5` rejecting `let`) are not applied. `sourceType` *is* honoured: `module`
   parses as strict module code and `script`/`commonjs` as sloppy script code.
+  `env` is honoured including its `parserOptions`: `env: node` turns on
+  `ecmaFeatures.globalReturn`, which allows a top-level `return` and makes scope
+  analysis nest a function scope over the Program (so top-level declarations do
+  not collide with node's globals) — matching ESLint exactly, including forcing
+  it off for `sourceType: "module"`.
 - **`extends`** supports `"eslint:recommended"` (filtered to implemented rules)
   and relative paths; shareable configs from npm and plugins are not resolved.
 - **Formatters**: `stylish`, `json`, `compact` and `unix` only.

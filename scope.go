@@ -15,12 +15,17 @@ import (
 // no-unused-vars, no-shadow, no-redeclare) would disagree with the oracle.
 
 // analyzeScope runs eslint-scope over a parsed program.
-func analyzeScope(ast Node, sourceType string, ecmaVersion int) *eslintscope.ScopeManager {
+//
+// nodejsScope mirrors ESLint's `nodejsScope: ecmaFeatures.globalReturn`: it makes
+// eslint-scope nest a function scope over the Program, so top-level declarations
+// do not collide with the globals a node/commonjs environment defines.
+func analyzeScope(ast Node, sourceType string, ecmaVersion int, nodejsScope bool) *eslintscope.ScopeManager {
 	if sourceType == "" {
 		sourceType = "script"
 	}
 	return eslintscope.Analyze(ast, &eslintscope.Options{
 		IgnoreEval:       true,
+		NodejsScope:      nodejsScope,
 		SourceType:       sourceType,
 		ECMAVersion:      ecmaVersion,
 		ChildVisitorKeys: VisitorKeys,

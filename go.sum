@@ -1,6 +1,6 @@
-github.com/jclyons52/acorn-go v0.2.0 h1:ayK/+009MpEKrFB3hoexM6ryDO5CnH43XLpNnScQvqM=
-github.com/jclyons52/acorn-go v0.2.0/go.mod h1:w0Dspvq/vid1P+A4upXMI6X/3493OX55WAD3Hf/Igrs=
+github.com/jclyons52/acorn-go v0.3.0 h1:HuLgy4lDZaBq9y+biZ6xaK0PeXU0gogZ3RKGhh+IGQc=
+github.com/jclyons52/acorn-go v0.3.0/go.mod h1:w0Dspvq/vid1P+A4upXMI6X/3493OX55WAD3Hf/Igrs=
 github.com/jclyons52/eslint-scope-go v0.1.2 h1:63do2KxMiHpgAHcmhjIVoQP7fwYNxPvEiduBlpSzpy0=
 github.com/jclyons52/eslint-scope-go v0.1.2/go.mod h1:0XsdAAIo0hzaRE+RvQJ0YfVkGoMVp3TVaykirnmg9SU=
-github.com/jclyons52/espree-go v0.1.0 h1:kjvgIp45Zo2fRLqCVUwfYxJhwe8n6ugqr6sIRZvt4Bk=
-github.com/jclyons52/espree-go v0.1.0/go.mod h1:RkL+5mNkLJo5y/svg0iPnyJAa3UB3UgE79IxhshdgxA=
+github.com/jclyons52/espree-go v0.1.2 h1:PIiIdLnvd+yIGx/jxgC8zWTXDDe3zus3ITC+zue/3EA=
+github.com/jclyons52/espree-go v0.1.2/go.mod h1:1bBvK0U2IT8r+loGIFZW/H9/3qtwRcf8fezufxYd3CY=

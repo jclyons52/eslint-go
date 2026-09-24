@@ -102,6 +102,39 @@ func (c *Config) ECMAFeatures() map[string]any {
 	return m
 }
 
+// GlobalReturn reports whether parserOptions.ecmaFeatures.globalReturn is in
+// effect, either set directly or contributed by an enabled environment.
+//
+// This is not cosmetic. `env: node` contributes globalReturn (see
+// @eslint/eslintrc's environment data), and ESLint threads it into two places:
+// espree's allowReturnOutsideFunction, and eslint-scope's nodejsScope — which
+// nests a function scope over the Program, so top-level declarations live in
+// that function scope instead of the global one. Without it a top-level `var
+// crypto` looks like a redeclaration of node's `crypto` global and `no-redeclare`
+// (builtinGlobals) reports it where ESLint reports nothing.
+func (c *Config) GlobalReturn() bool {
+	if c == nil {
+		return false
+	}
+	// Upstream forces this off for modules, in both verify paths:
+	//   "can't have global return inside of modules"
+	//   if (sourceType === "module" && ecmaFeatures.globalReturn) globalReturn = false
+	if c.SourceType() == "module" {
+		return false
+	}
+	if v, ok := c.ECMAFeatures()["globalReturn"].(bool); ok && v {
+		return true
+	}
+	for env := range c.Env {
+		opts := EnvParserOptions(env)
+		features, _ := opts["ecmaFeatures"].(map[string]any)
+		if v, ok := features["globalReturn"].(bool); ok && v {
+			return true
+		}
+	}
+	return false
+}
+
 // EnabledRule is a configured rule that is switched on.
 type EnabledRule struct {
 	ID       string
